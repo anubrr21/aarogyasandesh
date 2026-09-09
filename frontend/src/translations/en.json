@@ -1,0 +1,258 @@
+{
+  "app": {
+    "name": "AarogyaSandesh",
+    "tagline": "A Health Update, Delivered",
+    "portal": {
+      "family": "Family Portal",
+      "staff": "Staff Portal"
+    }
+  },
+  "auth": {
+    "welcome": "Welcome Back",
+    "signin": "Sign in to continue",
+    "create": "Create Account",
+    "join": "Join AarogyaSandesh",
+    "email": "Email Address",
+    "password": "Password",
+    "confirm_password": "Confirm Password",
+    "access_code": "Access Code",
+    "forgot_password": "Forgot Password?",
+    "login": "Login",
+    "register": "Register",
+    "login_btn": "Sign In",
+    "register_btn": "Create Account",
+    "no_account": "Don't have an account?",
+    "has_account": "Already have an account?",
+    "role": {
+      "family": "Family",
+      "staff": "Staff",
+      "select": "I am a"
+    },
+    "access_code_help": "Enter the 6-digit code provided by hospital staff",
+    "email_help": "Enter your email address",
+    "password_help": "Enter your password",
+    "confirm_help": "Re-enter your password"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "back": "Back",
+    "close": "Close",
+    "submit": "Submit",
+    "update": "Update",
+    "confirm": "Confirm",
+    "search": "Search",
+    "no_data": "No data found",
+    "optional": "Optional",
+    "required": "Required"
+  },
+  "family": {
+    "portal": {
+      "title": "Family Portal",
+      "tabs": {
+        "overview": "Overview",
+        "timeline": "Timeline",
+        "clinical": "Clinical",
+        "billing": "Billing",
+        "bill_check": "Bill Check",
+        "hospital_info": "Hospital Info",
+        "insurance": "Insurance",
+        "discharge": "Discharge",
+        "reports": "Reports"
+      }
+    },
+    "patient": {
+      "name": "Patient Name",
+      "age": "Age",
+      "gender": "Gender",
+      "id": "Patient ID",
+      "phone": "Phone",
+      "ward": "Ward",
+      "bed": "Bed",
+      "room": "Room",
+      "family_member": "Family Member",
+      "abha_id": "ABHA ID",
+      "diagnosis": "Diagnosis",
+      "admit_date": "Admit Date",
+      "discharged": "Discharged",
+      "active": "Active",
+      "length_of_stay": "Length of Stay"
+    },
+    "clinical": {
+      "diagnosis": "Diagnosis",
+      "medicines": "Medicines",
+      "vitals": "Vitals",
+      "consent": "Consent",
+      "no_diagnosis": "No diagnosis recorded",
+      "no_medicines": "No medicines prescribed",
+      "no_vitals": "No vitals logged",
+      "no_consent": "No consent requests"
+    },
+    "billing": {
+      "title": "Billing Details",
+      "cost_ledger": "Cost Ledger",
+      "deposits": "Deposits",
+      "total": "Total",
+      "balance": "Balance",
+      "no_items": "No bill items",
+      "no_deposits": "No deposits"
+    },
+    "bill_check": {
+      "title": "AI Bill Anomaly Detector",
+      "auto_flag": "Auto-Flag on Bills",
+      "manual_search": "Manual Search",
+      "upload_scan": "Upload & Scan",
+      "cghs_explainer": "Understanding CGHS Rate Tiers & NABH",
+      "flagged": "Flagged",
+      "normal": "Normal",
+      "unmatched": "Unmatched"
+    },
+    "hospital_info": {
+      "title": "Hospital Information",
+      "your_doctor": "Your Doctor",
+      "all_doctors": "All Doctors",
+      "visiting_hours": "Visiting Hours",
+      "no_doctor": "No doctor assigned yet",
+      "available": "Available",
+      "unavailable": "Unavailable"
+    },
+    "insurance": {
+      "title": "Insurance",
+      "add_policy": "Add Policy",
+      "total_policies": "Total Policies",
+      "total_coverage": "Total Coverage",
+      "active_policies": "Active Policies",
+      "no_policies": "No insurance policies added",
+      "provider": "Provider",
+      "policy_number": "Policy Number",
+      "policy_type": "Policy Type",
+      "sum_insured": "Sum Insured",
+      "start_date": "Start Date",
+      "expiry_date": "Expiry Date",
+      "status_active": "Active",
+      "status_expired": "Expired",
+      "claim": "Claim",
+      "claims": "Claims",
+      "ai_assistant": "AI Assistant"
+    },
+    "discharge": {
+      "title": "Discharge Status",
+      "checklist": "Checklist Progress",
+      "estimated_time": "Discharge Time",
+      "ready": "Ready for discharge",
+      "discharged": "Patient Discharged",
+      "view_summary": "View Summary"
+    },
+    "reports": {
+      "title": "Reports & Diagnostics",
+      "no_documents": "No Documents",
+      "upload_prescription": "Upload Prescription",
+      "send_note": "Send Note to Staff",
+      "view": "View Report",
+      "view_prescription": "View Prescription"
+    },
+    "notes": {
+      "title": "Send Note to Staff",
+      "placeholder": "Write a note to the hospital staff...",
+      "send": "Send Note",
+      "success": "Note sent to staff successfully!"
+    },
+    "consent": {
+      "pending": "Consent Request Pending",
+      "respond": "Respond",
+      "approve": "Approve",
+      "reject": "Reject",
+      "cancel": "Cancel",
+      "otp": "Enter OTP",
+      "otp_help": "Please enter the 6-digit OTP sent to the family phone"
+    }
+  },
+  "staff": {
+    "portal": {
+      "title": "Staff Portal",
+      "dashboard": "Dashboard",
+      "patients": "Patients",
+      "all_patients": "All Patients",
+      "doctors": "Doctors",
+      "reports": "Reports",
+      "visiting_hours": "Visiting Hours",
+      "settings": "Settings"
+    },
+    "dashboard": {
+      "total_patients": "Total Patients",
+      "active_patients": "Active Patients",
+      "discharged": "Discharged",
+      "today_admissions": "Today's Admissions"
+    },
+    "patients": {
+      "search": "Search by name, age, ID, ward, bed, or access code...",
+      "admit": "Admit Patient",
+      "show_all": "Show All Patients",
+      "showing_all": "Showing All",
+      "patient_id": "Patient ID",
+      "patient": "Patient",
+      "age": "Age",
+      "ward_bed": "Ward/Bed",
+      "family_member": "Family Member",
+      "access_code": "Access Code",
+      "status": "Status",
+      "action": "Action"
+    },
+    "admission": {
+      "title": "Admit New Patient",
+      "subtitle": "Enter patient details to generate access code",
+      "name": "Patient Name",
+      "age": "Age",
+      "gender": "Gender",
+      "phone": "Phone Number",
+      "problem": "Problem / Diagnosis",
+      "family_member": "Family Member",
+      "ward": "Ward",
+      "bed": "Bed Number",
+      "room": "Room Number",
+      "abha_id": "ABHA ID (Optional)",
+      "admit_date": "Admit Date",
+      "access_code_help": "Share these with the family for access"
+    },
+    "settings": {
+      "title": "Staff Settings",
+      "subtitle": "Manage your profile and personal information",
+      "employee_id": "Employee ID",
+      "join_date": "Join Date",
+      "full_name": "Full Name",
+      "email": "Email",
+      "phone": "Phone Number",
+      "department": "Department",
+      "designation": "Designation",
+      "save": "Save Changes",
+      "cancel": "Cancel",
+      "email_cannot_change": "Cannot be changed",
+      "profile_image": "Profile Image"
+    }
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Network error. Please check your connection.",
+    "auth": {
+      "login": "Failed to login. Please try again.",
+      "register": "Failed to register. Please try again.",
+      "email_exists": "This email is already registered.",
+      "invalid_email": "Invalid email address.",
+      "wrong_password": "Incorrect password.",
+      "user_not_found": "No account found with this email.",
+      "too_many_requests": "Too many attempts. Please try again later."
+    },
+    "field": {
+      "required": "This field is required",
+      "invalid": "Invalid input",
+      "password_match": "Passwords do not match",
+      "password_length": "Password must be at least 8 characters"
+    }
+  }
+}

@@ -2,12 +2,52 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>AarogyaSandesh</title>
   </head>
   <body>
     <div id="root"></div>
+    
+    <script type="text/javascript">
+      window.MSG91_CONFIG = {
+        widgetId: "366876726772303933353530",
+        tokenAuth: "563387TY8hWiAn8iyo6a89e64eP1",
+        exposeMethods: true,
+        captchaRenderId: '',
+        captchaDisable: true,
+        success: function(data) {
+          console.log('MSG91 Success:', data);
+        },
+        failure: function(error) {
+          console.log('MSG91 Failure:', error);
+        }
+      };
+    </script>
+    
+    <script type="text/javascript" src="https://verify.msg91.com/otp-provider.js"></script>
+    
+    <script type="text/javascript">
+      window.initMSG91 = function() {
+        if (typeof initSendOTP === 'function') {
+          initSendOTP(window.MSG91_CONFIG);
+          console.log('✅ MSG91 OTP Widget initialized');
+          console.log('✅ sendOtp available:', typeof window.sendOtp === 'function');
+          console.log('✅ verifyOtp available:', typeof window.verifyOtp === 'function');
+          console.log('✅ retryOtp available:', typeof window.retryOtp === 'function');
+        } else {
+          console.error('❌ initSendOTP function not found');
+          setTimeout(window.initMSG91, 1000);
+        }
+      };
+      
+      if (document.readyState === 'complete') {
+        window.initMSG91();
+      } else {
+        window.addEventListener('load', window.initMSG91);
+      }
+    </script>
+    
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

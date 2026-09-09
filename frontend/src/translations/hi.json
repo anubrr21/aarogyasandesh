@@ -1,0 +1,259 @@
+{
+  "app": {
+    "name": "आरोग्यसंदेश",
+    "tagline": "स्वास्थ्य अपडेट, वितरित",
+    "portal": {
+      "family": "परिवार पोर्टल",
+      "staff": "स्टाफ पोर्टल"
+    }
+  },
+  "auth": {
+    "welcome": "वापसी पर स्वागत है",
+    "signin": "जारी रखने के लिए साइन इन करें",
+    "create": "खाता बनाएं",
+    "join": "आरोग्यसंदेश में शामिल हों",
+    "email": "ईमेल पता",
+    "password": "पासवर्ड",
+    "confirm_password": "पासवर्ड की पुष्टि करें",
+    "access_code": "एक्सेस कोड",
+    "forgot_password": "पासवर्ड भूल गए?",
+    "login": "लॉगिन",
+    "register": "रजिस्टर",
+    "login_btn": "साइन इन करें",
+    "register_btn": "खाता बनाएं",
+    "no_account": "खाता नहीं है?",
+    "has_account": "पहले से खाता है?",
+    "role": {
+      "family": "परिवार",
+      "staff": "स्टाफ",
+      "select": "मैं हूँ"
+    },
+    "access_code_help": "अस्पताल स्टाफ द्वारा दिया गया 6 अंकों का कोड दर्ज करें",
+    "email_help": "अपना ईमेल पता दर्ज करें",
+    "password_help": "अपना पासवर्ड दर्ज करें",
+    "confirm_help": "पासवर्ड फिर से दर्ज करें"
+  },
+  "common": {
+    "loading": "लोड हो रहा है...",
+    "error": "त्रुटि",
+    "success": "सफलता",
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "view": "देखें",
+    "back": "वापस",
+    "close": "बंद करें",
+    "submit": "जमा करें",
+    "update": "अपडेट करें",
+    "confirm": "पुष्टि करें",
+    "search": "खोजें",
+    "no_data": "कोई डेटा नहीं मिला",
+    "optional": "वैकल्पिक",
+    "required": "आवश्यक"
+  },
+  "family": {
+    "portal": {
+      "title": "परिवार पोर्टल",
+      "tabs": {
+        "overview": "अवलोकन",
+        "timeline": "समयरेखा",
+        "clinical": "नैदानिक",
+        "billing": "बिलिंग",
+        "bill_check": "बिल जांच",
+        "hospital_info": "अस्पताल जानकारी",
+        "no_visiting_hours": "इस मरीज़ के लिए कोई मुलाकात समय निर्धारित नहीं",
+        "insurance": "बीमा",
+        "discharge": "डिस्चार्ज",
+        "reports": "रिपोर्ट"
+      }
+    },
+    "patient": {
+      "name": "रोगी का नाम",
+      "age": "आयु",
+      "gender": "लिंग",
+      "id": "रोगी आईडी",
+      "phone": "फोन",
+      "ward": "वार्ड",
+      "bed": "बेड",
+      "room": "कक्ष",
+      "family_member": "परिवार सदस्य",
+      "abha_id": "ABHA आईडी",
+      "diagnosis": "निदान",
+      "admit_date": "प्रवेश तिथि",
+      "discharged": "डिस्चार्ज",
+      "active": "सक्रिय",
+      "length_of_stay": "रहने की अवधि"
+    },
+    "clinical": {
+      "diagnosis": "निदान",
+      "medicines": "दवाइयाँ",
+      "vitals": "महत्वपूर्ण संकेत",
+      "consent": "सहमति",
+      "no_diagnosis": "कोई निदान दर्ज नहीं",
+      "no_medicines": "कोई दवा निर्धारित नहीं",
+      "no_vitals": "कोई महत्वपूर्ण संकेत नहीं",
+      "no_consent": "कोई सहमति अनुरोध नहीं"
+    },
+    "billing": {
+      "title": "बिलिंग विवरण",
+      "cost_ledger": "लागत लेजर",
+      "deposits": "जमा राशि",
+      "total": "कुल",
+      "balance": "शेष राशि",
+      "no_items": "कोई बिल आइटम नहीं",
+      "no_deposits": "कोई जमा नहीं"
+    },
+    "bill_check": {
+      "title": "एआई बिल विसंगति डिटेक्टर",
+      "auto_flag": "बिलों पर स्वत: फ्लैग",
+      "manual_search": "मैन्युअल खोज",
+      "upload_scan": "अपलोड और स्कैन",
+      "cghs_explainer": "CGHS दर स्तर और NABH को समझें",
+      "flagged": "फ्लैग किया गया",
+      "normal": "सामान्य",
+      "unmatched": "बेमेल"
+    },
+    "hospital_info": {
+      "title": "अस्पताल जानकारी",
+      "your_doctor": "आपके डॉक्टर",
+      "all_doctors": "सभी डॉक्टर",
+      "visiting_hours": "मुलाकात के घंटे",
+      "no_doctor": "कोई डॉक्टर नियुक्त नहीं",
+      "available": "उपलब्ध",
+      "unavailable": "अनुपलब्ध"
+    },
+    "insurance": {
+      "title": "बीमा",
+      "add_policy": "पॉलिसी जोड़ें",
+      "total_policies": "कुल पॉलिसियाँ",
+      "total_coverage": "कुल कवरेज",
+      "active_policies": "सक्रिय पॉलिसियाँ",
+      "no_policies": "कोई बीमा पॉलिसी नहीं",
+      "provider": "प्रदाता",
+      "policy_number": "पॉलिसी संख्या",
+      "policy_type": "पॉलिसी प्रकार",
+      "sum_insured": "बीमा राशि",
+      "start_date": "प्रारंभ तिथि",
+      "expiry_date": "समाप्ति तिथि",
+      "status_active": "सक्रिय",
+      "status_expired": "समाप्त",
+      "claim": "दावा करें",
+      "claims": "दावे",
+      "ai_assistant": "AI सहायक"
+    },
+    "discharge": {
+      "title": "डिस्चार्ज स्थिति",
+      "checklist": "चेकलिस्ट प्रगति",
+      "estimated_time": "डिस्चार्ज समय",
+      "ready": "डिस्चार्ज के लिए तैयार",
+      "discharged": "रोगी डिस्चार्ज",
+      "view_summary": "सारांश देखें"
+    },
+    "reports": {
+      "title": "रिपोर्ट और निदान",
+      "no_documents": "कोई दस्तावेज़ नहीं",
+      "upload_prescription": "पर्ची अपलोड करें",
+      "send_note": "स्टाफ को नोट भेजें",
+      "view": "रिपोर्ट देखें",
+      "view_prescription": "पर्ची देखें"
+    },
+    "notes": {
+      "title": "स्टाफ को नोट भेजें",
+      "placeholder": "अस्पताल स्टाफ को नोट लिखें...",
+      "send": "नोट भेजें",
+      "success": "नोट सफलतापूर्वक भेजा गया!"
+    },
+    "consent": {
+      "pending": "सहमति अनुरोध लंबित",
+      "respond": "जवाब दें",
+      "approve": "स्वीकार करें",
+      "reject": "अस्वीकार करें",
+      "cancel": "रद्द करें",
+      "otp": "OTP दर्ज करें",
+      "otp_help": "परिवार के फोन पर भेजा गया 6 अंकों का OTP दर्ज करें"
+    }
+  },
+  "staff": {
+    "portal": {
+      "title": "स्टाफ पोर्टल",
+      "dashboard": "डैशबोर्ड",
+      "patients": "मरीज",
+      "all_patients": "सभी मरीज",
+      "doctors": "डॉक्टर",
+      "reports": "रिपोर्ट",
+      "visiting_hours": "मुलाकात के घंटे",
+      "settings": "सेटिंग्स"
+    },
+    "dashboard": {
+      "total_patients": "कुल मरीज",
+      "active_patients": "सक्रिय मरीज",
+      "discharged": "डिस्चार्ज",
+      "today_admissions": "आज के प्रवेश"
+    },
+    "patients": {
+      "search": "नाम, आयु, आईडी, वार्ड, बेड या एक्सेस कोड से खोजें...",
+      "admit": "मरीज भर्ती करें",
+      "show_all": "सभी मरीज दिखाएं",
+      "showing_all": "सभी दिखा रहे हैं",
+      "patient_id": "मरीज आईडी",
+      "patient": "मरीज",
+      "age": "आयु",
+      "ward_bed": "वार्ड/बेड",
+      "family_member": "परिवार सदस्य",
+      "access_code": "एक्सेस कोड",
+      "status": "स्थिति",
+      "action": "कार्रवाई"
+    },
+    "admission": {
+      "title": "नया मरीज भर्ती करें",
+      "subtitle": "एक्सेस कोड जेनरेट करने के लिए मरीज का विवरण दर्ज करें",
+      "name": "मरीज का नाम",
+      "age": "आयु",
+      "gender": "लिंग",
+      "phone": "फोन नंबर",
+      "problem": "समस्या / निदान",
+      "family_member": "परिवार सदस्य",
+      "ward": "वार्ड",
+      "bed": "बेड नंबर",
+      "room": "कक्ष नंबर",
+      "abha_id": "ABHA आईडी (वैकल्पिक)",
+      "admit_date": "प्रवेश तिथि",
+      "access_code_help": "परिवार के साथ साझा करें"
+    },
+    "settings": {
+      "title": "स्टाफ सेटिंग्स",
+      "subtitle": "अपनी प्रोफ़ाइल और व्यक्तिगत जानकारी प्रबंधित करें",
+      "employee_id": "कर्मचारी आईडी",
+      "join_date": "शामिल होने की तारीख",
+      "full_name": "पूरा नाम",
+      "email": "ईमेल",
+      "phone": "फोन नंबर",
+      "department": "विभाग",
+      "designation": "पदनाम",
+      "save": "बदलाव सहेजें",
+      "cancel": "रद्द करें",
+      "email_cannot_change": "बदला नहीं जा सकता",
+      "profile_image": "प्रोफ़ाइल छवि"
+    }
+  },
+  "errors": {
+    "generic": "कुछ गड़बड़ हो गई। कृपया पुनः प्रयास करें।",
+    "network": "नेटवर्क त्रुटि। कृपया अपना कनेक्शन जांचें।",
+    "auth": {
+      "login": "लॉगिन विफल। कृपया पुनः प्रयास करें।",
+      "register": "रजिस्टर विफल। कृपया पुनः प्रयास करें।",
+      "email_exists": "यह ईमेल पहले से पंजीकृत है।",
+      "invalid_email": "अमान्य ईमेल पता।",
+      "wrong_password": "गलत पासवर्ड।",
+      "user_not_found": "इस ईमेल के साथ कोई खाता नहीं मिला।",
+      "too_many_requests": "बहुत अधिक प्रयास। कृपया बाद में पुनः प्रयास करें।"
+    },
+    "field": {
+      "required": "यह फ़ील्ड आवश्यक है",
+      "invalid": "अमान्य इनपुट",
+      "password_match": "पासवर्ड मेल नहीं खाते",
+      "password_length": "पासवर्ड कम से कम 8 अक्षर का होना चाहिए"
+    }
+  }
+}
