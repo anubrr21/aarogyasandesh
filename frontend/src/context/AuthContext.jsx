@@ -31,6 +31,7 @@ useEffect(() => {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('patientId')
       localStorage.removeItem('patientData')
+      localStorage.removeItem('staffGroup')
     }
     setLoading(false)
   })
@@ -47,6 +48,7 @@ useEffect(() => {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('patientId')
       localStorage.removeItem('patientData')
+      localStorage.removeItem('staffGroup')
     } catch (error) {
       console.error(error)
       setAuthError(error.message)

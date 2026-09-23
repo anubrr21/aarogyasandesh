@@ -86,7 +86,7 @@ const VisitingPass = ({ patientId, patientName, visitorName, ward, onClose }) =>
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8 bg-white rounded-2xl">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin"></div>
         <span className="ml-3 text-gray-500">Generating pass...</span>
       </div>
     )
@@ -99,7 +99,7 @@ const VisitingPass = ({ patientId, patientName, visitorName, ward, onClose }) =>
         <p className="text-red-600">{error}</p>
         <button
           onClick={onClose}
-          className="mt-4 px-4 py-2 bg-teal-500 text-white rounded-xl hover:bg-teal-600 transition-colors"
+          className="mt-4 px-4 py-2 bg-forest-500 text-white rounded-xl hover:bg-forest-700 transition-colors"
         >
           Close
         </button>
@@ -138,7 +138,7 @@ const VisitingPass = ({ patientId, patientName, visitorName, ward, onClose }) =>
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-500">Valid Until</span>
-          <span className="font-medium text-teal-600">{expiryTime}</span>
+          <span className="font-medium text-forest-700">{expiryTime}</span>
         </div>
         {slotData?.visitingHours && (
           <div className="flex items-center justify-between text-sm">
@@ -162,7 +162,7 @@ const VisitingPass = ({ patientId, patientName, visitorName, ward, onClose }) =>
         </button>
         <button
           onClick={copyLink}
-          className="flex-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 flex items-center justify-center gap-2"
+          className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-600 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 flex items-center justify-center gap-2"
         >
           {copied ? <CheckCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
           {copied ? 'Copied!' : 'Copy Link'}

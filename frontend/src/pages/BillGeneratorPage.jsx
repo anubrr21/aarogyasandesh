@@ -48,17 +48,17 @@ const BillGeneratorPage = () => {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/staff')}
-              className="flex items-center gap-2 text-gray-500 hover:text-teal-600 transition-colors"
+              className="flex items-center gap-2 text-gray-500 hover:text-forest-700 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back to Dashboard</span>
             </button>
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-teal-50 rounded-xl border border-teal-200/50">
-                <FileText className="w-5 h-5 text-teal-600" />
+              <div className="p-2 bg-forest-50 rounded-xl border border-forest-200/50">
+                <FileText className="w-5 h-5 text-forest-700" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Bill Generator</h1>
+                <h1 className="text-2xl font-display font-semibold text-gray-900">Bill Generator</h1>
                 {patientName && (
                   <p className="text-sm text-gray-500">Patient: {patientName}</p>
                 )}

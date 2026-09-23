@@ -87,7 +87,7 @@ const BillAnomalyDetector = ({ billingItems = [], patientId, onFlaggedItem }) =>
       case 'flagged':
         return <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded-lg text-xs font-medium border border-red-500/20 flex items-center gap-1"><AlertTriangle size={12} /> Flagged</span>
       case 'normal':
-        return <span className="px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg text-xs font-medium border border-emerald-500/20 flex items-center gap-1"><CheckCircle size={12} /> Normal</span>
+        return <span className="px-2 py-1 bg-forest-600/10 text-forest-400 rounded-lg text-xs font-medium border border-forest-600/20 flex items-center gap-1"><CheckCircle size={12} /> Normal</span>
       case 'unmatched':
         return <span className="px-2 py-1 bg-gray-500/10 text-gray-400 rounded-lg text-xs font-medium border border-gray-500/20 flex items-center gap-1"><Minus size={12} /> Unmatched</span>
       default:
@@ -208,12 +208,12 @@ Important:
 
   const StatCard = ({ label, value, color, icon: Icon }) => (
     <div className={`bg-white/50 p-3 rounded-lg border border-gray-200/50 flex items-center gap-3`}>
-      <div className={`p-2 rounded-lg ${color === 'red' ? 'bg-red-50' : color === 'green' ? 'bg-emerald-50' : 'bg-gray-50'}`}>
-        <Icon className={`w-4 h-4 ${color === 'red' ? 'text-red-400' : color === 'green' ? 'text-emerald-400' : 'text-gray-400'}`} />
+      <div className={`p-2 rounded-lg ${color === 'red' ? 'bg-red-50' : color === 'green' ? 'bg-forest-50' : 'bg-gray-50'}`}>
+        <Icon className={`w-4 h-4 ${color === 'red' ? 'text-red-400' : color === 'green' ? 'text-forest-400' : 'text-gray-400'}`} />
       </div>
       <div>
         <p className="text-xs text-gray-500">{label}</p>
-        <p className={`text-lg font-bold ${color === 'red' ? 'text-red-400' : color === 'green' ? 'text-emerald-400' : 'text-gray-900'}`}>
+        <p className={`text-lg font-bold ${color === 'red' ? 'text-red-400' : color === 'green' ? 'text-forest-400' : 'text-gray-900'}`}>
           {value}
         </p>
       </div>
@@ -224,8 +224,8 @@ Important:
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-teal-50 rounded-lg border border-teal-200/50">
-            <Shield className="w-5 h-5 text-teal-500" />
+          <div className="p-2 bg-forest-50 rounded-lg border border-forest-200/50">
+            <Shield className="w-5 h-5 text-forest-500" />
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900">AI Bill Anomaly Detector</h3>
@@ -275,7 +275,7 @@ Important:
       {!showExplainer && (
         <button
           onClick={() => setShowExplainer(true)}
-          className="text-xs text-teal-600 hover:text-teal-700 transition-colors flex items-center gap-1"
+          className="text-xs text-forest-700 hover:text-forest-800 transition-colors flex items-center gap-1"
         >
           <Info size={12} />
           Show tier information
@@ -308,7 +308,7 @@ Important:
                       anomaly.status === 'flagged' 
                         ? 'bg-red-500/5 border-red-500/30' 
                         : anomaly.status === 'normal'
-                        ? 'bg-emerald-500/5 border-emerald-500/30'
+                        ? 'bg-forest-600/5 border-forest-600/30'
                         : 'bg-gray-50/50 border-gray-200/50'
                     }`}
                   >
@@ -325,7 +325,7 @@ Important:
                               <span className="text-xs text-gray-500">Benchmark: ₹{anomaly.benchmarkRate}</span>
                               <span className="text-xs text-gray-400">|</span>
                               <span className={`text-xs font-medium ${
-                                anomaly.diffPercent > 0 ? 'text-red-400' : 'text-emerald-400'
+                                anomaly.diffPercent > 0 ? 'text-red-400' : 'text-forest-400'
                               }`}>
                                 {anomaly.diffPercent > 0 ? '+' : ''}{anomaly.diffPercent}%
                               </span>
@@ -349,13 +349,13 @@ Important:
                       </div>
                     )}
                     {anomaly.status === 'normal' && anomaly.diffPercent < 0 && (
-                      <div className="mt-1.5 flex items-center gap-2 text-xs text-emerald-400">
+                      <div className="mt-1.5 flex items-center gap-2 text-xs text-forest-400">
                         <TrendingDown size={12} />
                         <span>Charged {Math.abs(anomaly.diffPercent)}% below benchmark</span>
                       </div>
                     )}
                     {anomaly.status === 'normal' && anomaly.diffPercent >= 0 && (
-                      <div className="mt-1.5 flex items-center gap-2 text-xs text-emerald-400">
+                      <div className="mt-1.5 flex items-center gap-2 text-xs text-forest-400">
                         <CheckCircle size={12} />
                         <span>Within acceptable range</span>
                       </div>
@@ -386,7 +386,7 @@ Important:
                 onFocus={() => searchQuery.length >= 2 && setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 placeholder="Type procedure name (e.g., MRI, Blood Test)"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
               />
               {showSuggestions && searchSuggestions.length > 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white/95 backdrop-blur-xl border border-gray-200 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
@@ -394,7 +394,7 @@ Important:
                     <button
                       key={idx}
                       onMouseDown={() => selectSuggestion(item)}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-teal-50/50 transition-colors flex items-center justify-between"
+                      className="w-full px-4 py-2 text-left text-sm hover:bg-forest-50/50 transition-colors flex items-center justify-between"
                     >
                       <span className="text-gray-900 truncate">{item.name}</span>
                       <span className="text-xs text-gray-400 ml-2 flex-shrink-0">₹{item.rate}</span>
@@ -408,12 +408,12 @@ Important:
               value={searchAmount}
               onChange={(e) => setSearchAmount(e.target.value)}
               placeholder="Charged amount (₹)"
-              className="w-full sm:w-40 px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+              className="w-full sm:w-40 px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
             />
             <button
               onClick={handleSearch}
               disabled={!searchQuery.trim() || !searchAmount}
-              className="px-6 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center whitespace-nowrap"
+              className="px-6 py-2.5 bg-gradient-to-r from-forest-700 to-forest-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center whitespace-nowrap"
             >
               <Search size={18} />
               Check
@@ -422,7 +422,7 @@ Important:
 
           {searchLoading && (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-8 h-8 text-teal-500 animate-spin" />
+              <Loader2 className="w-8 h-8 text-forest-500 animate-spin" />
             </div>
           )}
 
@@ -434,7 +434,7 @@ Important:
                 searchResult.status === 'flagged' 
                   ? 'bg-red-500/5 border-red-500/30' 
                   : searchResult.status === 'normal'
-                  ? 'bg-emerald-500/5 border-emerald-500/30'
+                  ? 'bg-forest-600/5 border-forest-600/30'
                   : 'bg-gray-50/50 border-gray-200/50'
               }`}
             >
@@ -470,7 +470,7 @@ Important:
                     </div>
                     <div className="bg-white/50 p-3 rounded-lg border border-gray-200/50">
                       <p className="text-xs text-gray-500">Difference</p>
-                      <p className={`text-lg font-bold ${searchResult.diffPercent > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      <p className={`text-lg font-bold ${searchResult.diffPercent > 0 ? 'text-red-400' : 'text-forest-400'}`}>
                         {searchResult.diffPercent > 0 ? '+' : ''}{searchResult.diffPercent}%
                       </p>
                     </div>
@@ -486,8 +486,8 @@ Important:
                   )}
 
                   {searchResult.status === 'normal' && (
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                      <p className="text-sm text-emerald-400 flex items-center gap-2">
+                    <div className="p-3 bg-forest-600/10 border border-forest-600/20 rounded-lg">
+                      <p className="text-sm text-forest-400 flex items-center gap-2">
                         <CheckCircle size={16} />
                         <span>Charged amount is within acceptable range</span>
                       </p>
@@ -513,10 +513,10 @@ Important:
           {!showUpload ? (
             <button
               onClick={() => setShowUpload(true)}
-              className="w-full p-8 border-2 border-dashed border-gray-200 rounded-xl hover:border-teal-400 transition-all duration-300 flex flex-col items-center gap-3 bg-white/50"
+              className="w-full p-8 border-2 border-dashed border-gray-200 rounded-xl hover:border-forest-400 transition-all duration-300 flex flex-col items-center gap-3 bg-white/50"
             >
-              <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center">
-                <Camera className="w-8 h-8 text-teal-500" />
+              <div className="w-16 h-16 bg-forest-50 rounded-full flex items-center justify-center">
+                <Camera className="w-8 h-8 text-forest-500" />
               </div>
               <div>
                 <p className="font-medium text-gray-900">Upload Bill Image</p>
@@ -531,7 +531,7 @@ Important:
                     type="file"
                     accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
                     onChange={handleFileUpload}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-teal-50 file:text-teal-600 hover:file:bg-teal-100 transition-colors"
+                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-forest-50 file:text-forest-700 hover:file:bg-forest-100 transition-colors"
                   />
                 </div>
                 <button
@@ -601,7 +601,7 @@ Important:
                         item.anomaly.status === 'flagged' 
                           ? 'bg-red-500/5 border-red-500/30' 
                           : item.anomaly.status === 'normal'
-                          ? 'bg-emerald-500/5 border-emerald-500/30'
+                          ? 'bg-forest-600/5 border-forest-600/30'
                           : 'bg-gray-50/50 border-gray-200/50'
                       }`}>
                         <div className="flex items-center justify-between">

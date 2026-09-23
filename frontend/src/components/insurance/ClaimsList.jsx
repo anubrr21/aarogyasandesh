@@ -6,7 +6,7 @@ const ClaimsList = ({ claims, policies, maskPolicyNumber, getStatusBadge }) => {
     switch(status) {
       case 'Approved':
       case 'Settled':
-        return <CheckCircle className="w-4 h-4 text-emerald-500" />
+        return <CheckCircle className="w-4 h-4 text-forest-600" />
       case 'Submitted':
         return <Clock className="w-4 h-4 text-blue-500" />
       case 'Under Review':
@@ -79,7 +79,7 @@ const ClaimsList = ({ claims, policies, maskPolicyNumber, getStatusBadge }) => {
               <p className="text-sm text-gray-900">{claim.treatment || 'N/A'}</p>
             </div>
             <div className="flex items-end justify-end">
-              <button className="text-teal-600 hover:text-teal-700 text-sm flex items-center gap-1">
+              <button className="text-forest-700 hover:text-forest-800 text-sm flex items-center gap-1">
                 <Eye className="w-4 h-4" />
                 View
               </button>

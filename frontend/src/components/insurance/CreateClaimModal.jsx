@@ -102,7 +102,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-teal-600" />
+            <TrendingUp className="w-5 h-5 text-forest-700" />
             <h2 className="text-xl font-bold text-gray-900">New Insurance Claim</h2>
           </div>
           <button
@@ -113,7 +113,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
           </button>
         </div>
 
-        <div className="mb-4 p-3 bg-teal-50/50 rounded-xl border border-teal-200/50">
+        <div className="mb-4 p-3 bg-forest-50/50 rounded-xl border border-forest-200/50">
           <p className="text-sm text-gray-600">
             <strong>Policy:</strong> {policy.provider} - {policy.policyNumber ? 'XXXX-XXXX-' + policy.policyNumber.slice(-4) : 'N/A'}
           </p>
@@ -130,7 +130,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
                 name="claimType"
                 value={formData.claimType}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               >
                 {claimTypes.map((type) => (
@@ -146,7 +146,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
                 value={formData.hospitalName}
                 onChange={handleChange}
                 placeholder="Enter hospital name"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               />
             </div>
@@ -158,7 +158,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
                 value={formData.treatment}
                 onChange={handleChange}
                 placeholder="e.g., Knee Surgery, MRI Scan"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               />
             </div>
@@ -170,7 +170,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
                 value={formData.claimedAmount}
                 onChange={handleChange}
                 placeholder="Enter amount"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               />
             </div>
@@ -181,7 +181,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
                 value={formData.notes}
                 onChange={handleChange}
                 placeholder="Additional notes about the claim..."
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all min-h-[80px]"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all min-h-[80px]"
                 rows="2"
               />
             </div>
@@ -189,7 +189,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Supporting Documents</label>
-            <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-teal-400 transition-all">
+            <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-forest-400 transition-all">
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png,.gif"
@@ -228,7 +228,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
           )}
 
           {success && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-forest-50 border border-forest-200 rounded-xl text-forest-700 text-sm">
               <CheckCircle className="w-4 h-4 flex-shrink-0" />
               <span>{success}</span>
             </div>
@@ -245,7 +245,7 @@ const CreateClaimModal = ({ onClose, policy, patientId, patientName, onSuccess }
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-2.5 bg-gradient-to-r from-forest-500 to-forest-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

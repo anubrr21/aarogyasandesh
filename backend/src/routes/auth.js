@@ -8,7 +8,7 @@ const db = admin.firestore();
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, displayName, role, accessCode } = req.body;
+    const { email, password, displayName, role, accessCode, staffCode } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -22,6 +22,16 @@ router.post('/register', async (req, res) => {
         success: false,
         error: 'Access code is required for family registration'
       });
+    }
+
+    if (role === 'staff') {
+      const validStaffCode = process.env.STAFF_REGISTRATION_CODE;
+      if (!validStaffCode || !staffCode || staffCode !== validStaffCode) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid staff registration code. Please contact hospital administration.'
+        });
+      }
     }
 
     let accessCodeValid = true;
@@ -44,6 +54,14 @@ router.post('/register', async (req, res) => {
             error: 'This patient has been discharged'
           });
         }
+        // One access code can only ever be claimed by one family email. Once a family member has
+        // registered against this code, no other email can register using the same code.
+        if (patientData.familyEmail && patientData.familyEmail !== email) {
+          return res.status(400).json({
+            success: false,
+            error: 'This access code is already linked to a family account. Please contact hospital staff if you believe this is an error.'
+          });
+        }
       }
     }
 
@@ -61,7 +79,8 @@ router.post('/register', async (req, res) => {
       displayName: displayName || '',
       emailVerified: false
     });
-    await admin.auth().setCustomUserClaims(userRecord.uid, { role });
+    const customClaims = role === 'staff' ? { role, staffGroup: staffCode } : { role };
+    await admin.auth().setCustomUserClaims(userRecord.uid, customClaims);
 
     if (role === 'family' && accessCode && patientData && patientId) {
       await admin.firestore().collection('patients').doc(patientId).update({
@@ -207,9 +226,9 @@ router.post('/verify-access-code', async (req, res) => {
     const data = doc.data();
 
     if (data.discharged === true) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'This patient has been discharged. Please contact the hospital for access.' 
+      return res.status(400).json({
+        success: false,
+        message: 'This patient has been discharged. Please contact the hospital for access.'
       });
     }
 
@@ -243,5 +262,145 @@ router.post('/verify-access-code', async (req, res) => {
     });
   }
 });
+
+router.post('/google-register', async (req, res) => {
+  try {
+    const { idToken, role, accessCode, staffCode } = req.body
+
+    if (!idToken) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' })
+    }
+
+    if (role === 'family' && !accessCode) {
+      return res.status(400).json({ success: false, error: 'Access code is required for family registration' })
+    }
+
+    if (role === 'staff' && !staffCode) {
+      return res.status(400).json({ success: false, error: 'Staff registration code is required' })
+    }
+
+    const decoded = await admin.auth().verifyIdToken(idToken)
+    const { uid, email, name: displayName } = decoded
+
+    // A role claim only ever gets set by a completed registration (password or Google), so if one
+    // is already present this Google account was already registered — signing in created/reused the
+    // same Firebase Auth user, but it must not be treated as a fresh registration a second time.
+    if (decoded.role) {
+      return res.status(400).json({
+        success: false,
+        error: 'This email is already registered. Please sign in instead.',
+        alreadyRegistered: true
+      })
+    }
+
+    if (role === 'staff') {
+      const validStaffCode = process.env.STAFF_REGISTRATION_CODE
+      if (!validStaffCode || !staffCode || staffCode !== validStaffCode) {
+        await admin.auth().deleteUser(uid).catch(() => {})
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid staff registration code. Please contact hospital administration.'
+        })
+      }
+
+      await admin.auth().setCustomUserClaims(uid, { role: 'staff', staffGroup: staffCode })
+      // Google sign-in marks the email as verified automatically. Reset it so this account goes
+      // through the exact same "check your email" verification step as password registration.
+      await admin.auth().updateUser(uid, { emailVerified: false })
+
+      const actionCodeSettings = { url: 'http://localhost:5173/login', handleCodeInApp: true }
+      const verificationLink = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings)
+      await sendVerificationEmail(email, displayName, 'staff', verificationLink)
+
+      return res.json({
+        success: true,
+        message: 'Account created. Verification email sent.',
+        uid,
+        accessCodeValid: true
+      })
+    }
+
+    const patientsRef = admin.firestore().collection('patients')
+    const snapshot = await patientsRef.where('accessCode', '==', accessCode).get()
+
+    if (snapshot.empty) {
+      // Google sign-in already created this Firebase Auth account before we could validate the
+      // access code, unlike the password flow where creation only happens after validation passes.
+      // Delete it here so an invalid access code never leaves behind an unclaimed account.
+      await admin.auth().deleteUser(uid).catch(() => {})
+      return res.status(400).json({ success: false, error: 'Invalid access code', accessCodeValid: false })
+    }
+
+    const doc = snapshot.docs[0]
+    const patientData = doc.data()
+    const patientId = doc.id
+
+    if (patientData.discharged) {
+      await admin.auth().deleteUser(uid).catch(() => {})
+      return res.status(400).json({ success: false, error: 'This patient has been discharged' })
+    }
+
+    // One access code can only ever be claimed by one family email. Once a family member has
+    // registered against this code, no other email (including via Google) can register using it.
+    if (patientData.familyEmail && patientData.familyEmail !== email) {
+      await admin.auth().deleteUser(uid).catch(() => {})
+      return res.status(400).json({
+        success: false,
+        error: 'This access code is already linked to a family account. Please contact hospital staff if you believe this is an error.'
+      })
+    }
+
+    await admin.auth().setCustomUserClaims(uid, { role: 'family' })
+
+    await admin.firestore().collection('patients').doc(patientId).update({
+      familyEmail: email,
+      familyVerified: true
+    })
+
+    // Google sign-in marks the email as verified automatically. Reset it so this account goes
+    // through the exact same "check your email" verification step as password registration.
+    await admin.auth().updateUser(uid, { emailVerified: false })
+
+    const actionCodeSettings = {
+      url: 'http://localhost:5173/login',
+      handleCodeInApp: true
+    }
+    const verificationLink = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings)
+    await sendVerificationEmail(email, displayName, 'family', verificationLink)
+
+    return res.json({
+      success: true,
+      message: 'Account created. Verification email sent.',
+      uid,
+      patientId,
+      accessCodeValid: true
+    })
+  } catch (error) {
+    console.error('Google registration error:', error)
+    return res.status(400).json({ success: false, error: error.message })
+  }
+})
+
+router.get('/staff-registration-code', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || ''
+    const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+
+    if (!idToken) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' })
+    }
+
+    const decoded = await admin.auth().verifyIdToken(idToken)
+
+    if (decoded.role !== 'staff') {
+      return res.status(403).json({ success: false, error: 'Only staff accounts can view the registration code' })
+    }
+
+    return res.json({ success: true, code: process.env.STAFF_REGISTRATION_CODE || null })
+  } catch (error) {
+    console.error('Staff registration code fetch error:', error)
+    return res.status(401).json({ success: false, error: 'Invalid or expired session' })
+  }
+})
 
 export default router;

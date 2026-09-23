@@ -23,6 +23,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import NotificationBell from '../components/common/NotificationBell';
+import Wordmark from '../components/common/Wordmark';
 
 const DoctorPortal = () => {
   const { user, logout } = useAuth();
@@ -122,7 +123,7 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
     return (
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-2 border-forest-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-500">Loading doctor portal...</p>
         </div>
       </div>
@@ -133,14 +134,14 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
     return (
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center p-4">
         <div className="bg-white/85 backdrop-blur-xl border border-gray-200/50 rounded-3xl p-8 max-w-md w-full text-center">
-          <Stethoscope className="w-16 h-16 text-teal-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Doctor Profile Not Found</h2>
+          <Stethoscope className="w-16 h-16 text-forest-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-display font-semibold text-gray-900 mb-2">Doctor Profile Not Found</h2>
           <p className="text-gray-500 mb-6">
             Your doctor profile could not be found. Please contact hospital staff.
           </p>
           <button
             onClick={handleLogout}
-            className="w-full py-3 bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300"
+            className="w-full py-3 bg-gradient-to-r from-forest-700 to-forest-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300"
           >
             Go Back
           </button>
@@ -151,21 +152,21 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
 
   return (
     <div className="min-h-screen bg-[#FAF6EE]">
-      <header className="bg-gradient-to-r from-teal-600 to-emerald-500 text-white shadow-lg sticky top-0 z-50">
+      <header className="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
               <button onClick={() => navigate('/doctor')} className="flex items-center gap-3 group">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/20">
-                  <img 
-                    src="/src/assets/Logo.png" 
-                    alt="AarogyaSandesh Logo" 
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20">
+                  <img
+                    src="/src/assets/Logo.png"
+                    alt="AarogyaSandesh Logo"
                     className="w-full h-full object-contain"
                   />
                 </div>
                 <div>
-              <h1 className="text-xl font-bold text-white">AarogyaSandesh</h1>
-<p className="text-xs text-teal-200">Doctor Portal</p>
+                  <Wordmark size="xs" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
+                  <p className="text-xs text-forest-700">Doctor Portal</p>
                 </div>
               </button>
             </div>
@@ -175,7 +176,7 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
                 <button
                   onClick={() => setActiveTab('active')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    activeTab === 'active' ? 'bg-teal-50 text-teal-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    activeTab === 'active' ? 'bg-forest-50 text-forest-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >
                   Active Patients
@@ -183,15 +184,15 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
                 <button
                   onClick={() => setActiveTab('discharged')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    activeTab === 'discharged' ? 'bg-teal-50 text-teal-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    activeTab === 'discharged' ? 'bg-forest-50 text-forest-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >
                   Discharged
                 </button>
               </div>
 
-              <NotificationBell userId={user?.uid} userType="doctor" />
-              
+              <NotificationBell userId={doctorData?.id || user?.uid} userType="doctor" />
+
               <div className="flex items-center gap-3">
                 <div className="text-right hidden md:block">
                   <p className="text-sm font-medium text-gray-900 truncate max-w-[150px]">
@@ -225,14 +226,14 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
     </div>
   </div>
 
-  <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200/50 rounded-2xl p-6 shadow-sm">
+  <div className="bg-gradient-to-br from-forest-50 to-green-50 border border-forest-200/50 rounded-2xl p-6 shadow-sm">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-sm text-emerald-600">Active Patients</p>
-        <p className="text-2xl font-bold text-emerald-600">{activePatients.length}</p>
+        <p className="text-sm text-forest-700">Active Patients</p>
+        <p className="text-2xl font-bold text-forest-700">{activePatients.length}</p>
       </div>
-      <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center border border-emerald-200">
-        <Activity className="w-6 h-6 text-emerald-600" />
+      <div className="w-12 h-12 bg-forest-100 rounded-xl flex items-center justify-center border border-forest-200">
+        <Activity className="w-6 h-6 text-forest-700" />
       </div>
     </div>
   </div>
@@ -270,7 +271,7 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
               placeholder="Search patients by name, ID, or ward..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+              className="w-full pl-12 pr-4 py-3 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
             />
           </div>
         </div>
@@ -334,7 +335,7 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm">
           <div className="p-6 border-b border-gray-200/50 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-lg font-display font-semibold text-gray-900">
                 {activeTab === 'active' ? 'Active Patients' : 'Discharged Patients'}
               </h2>
               <p className="text-sm text-gray-500">
@@ -370,18 +371,18 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
                   {displayPatients.map((patient, index) => (
                     <tr
                       key={patient.id}
-                      className="hover:bg-teal-50/30 transition-colors cursor-pointer"
+                      className="hover:bg-forest-50/30 transition-colors cursor-pointer"
                       onClick={() => navigate(`/doctor/patient/${patient.id}`)}
                     >
                       <td className="px-6 py-4 text-sm text-gray-500">{index + 1}</td>
                       <td className="px-6 py-4">
-                        <code className="text-xs font-mono text-teal-600 bg-teal-50 px-2 py-1 rounded">
+                        <code className="text-xs font-mono text-forest-700 bg-forest-50 px-2 py-1 rounded">
                           {patient.patientId || 'N/A'}
                         </code>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-forest-500 to-forest-500 rounded-full flex items-center justify-center">
                             <span className="text-sm font-bold text-white">
                               {patient.name?.charAt(0).toUpperCase()}
                             </span>
@@ -404,8 +405,8 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
                             Discharged
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-medium border border-emerald-200">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-forest-50 text-forest-700 rounded-full text-xs font-medium border border-forest-200">
+                            <span className="w-1.5 h-1.5 bg-forest-600 rounded-full animate-pulse"></span>
                             Active
                           </span>
                         )}
@@ -416,7 +417,7 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
                             e.stopPropagation();
                             navigate(`/doctor/patient/${patient.id}`);
                           }}
-                          className="px-3 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-xs font-medium hover:bg-teal-100 transition-colors"
+                          className="px-3 py-1.5 bg-forest-50 text-forest-700 rounded-lg text-xs font-medium hover:bg-forest-100 transition-colors"
                         >
                           View Details
                         </button>

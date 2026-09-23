@@ -20,76 +20,32 @@ export const PatientProvider = ({ children }) => {
     }
 
     if (role === 'staff') {
-      const q1 = query(
-        collection(db, 'patients'),
-        where('staffId', '==', user.uid)
-      );
-
-      const q2 = query(
-        collection(db, 'patients'),
-        where('assignedStaffIds', 'array-contains', user.uid)
-      );
-
-      const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+      // Group-scoped access: staff who registered with the same staff registration code can see
+      // each other's patients (so a shift handoff no longer loses access), but staff who registered
+      // with a different code cannot. Previously this only queried staffId/assignedStaffIds == this
+      // user's own UID, which meant a patient became invisible to the rest of the team the moment
+      // the admitting staff member's shift ended. staffId/assignedStaffIds are still written on
+      // create/update below, unchanged, as a record of who originally admitted/touched a patient.
+      // Patients that already existed before this change have no staffGroup field at all, so they're
+      // treated as visible to every staff member rather than becoming invisible to everyone.
+      const myGroup = localStorage.getItem('staffGroup');
+      const unsubscribe = onSnapshot(collection(db, 'patients'), (snapshot) => {
         const patientData = [];
         snapshot.forEach((doc) => {
           patientData.push({ id: doc.id, ...doc.data() });
         });
-        setPatients(prev => {
-          const merged = [...prev];
-          patientData.forEach(p => {
-            if (!merged.find(m => m.id === p.id)) {
-              merged.push(p);
-            }
-          });
-          return merged;
-        });
-        setAllPatients(prev => {
-          const merged = [...prev];
-          patientData.forEach(p => {
-            if (!merged.find(m => m.id === p.id)) {
-              merged.push(p);
-            }
-          });
-          return merged;
-        });
+        const visible = myGroup
+          ? patientData.filter(p => !p.staffGroup || p.staffGroup === myGroup)
+          : patientData;
+        setPatients(visible);
+        setAllPatients(visible);
         setLoading(false);
       }, (error) => {
-        console.error('Error fetching patients by staffId:', error);
-      });
-
-      const unsubscribe2 = onSnapshot(q2, (snapshot) => {
-        const patientData = [];
-        snapshot.forEach((doc) => {
-          patientData.push({ id: doc.id, ...doc.data() });
-        });
-        setPatients(prev => {
-          const merged = [...prev];
-          patientData.forEach(p => {
-            if (!merged.find(m => m.id === p.id)) {
-              merged.push(p);
-            }
-          });
-          return merged;
-        });
-        setAllPatients(prev => {
-          const merged = [...prev];
-          patientData.forEach(p => {
-            if (!merged.find(m => m.id === p.id)) {
-              merged.push(p);
-            }
-          });
-          return merged;
-        });
+        console.error('Error fetching patients:', error);
         setLoading(false);
-      }, (error) => {
-        console.error('Error fetching patients by assignedStaffIds:', error);
       });
 
-      return () => {
-        unsubscribe1();
-        unsubscribe2();
-      };
+      return () => unsubscribe();
     } else if (role === 'family') {
       const patientId = localStorage.getItem('patientId');
       if (patientId) {
@@ -128,6 +84,7 @@ export const PatientProvider = ({ children }) => {
       accessCode,
       staffId: user.uid,
       assignedStaffIds: [user.uid],
+      staffGroup: localStorage.getItem('staffGroup') || null,
       createdAt: new Date().toISOString(),
       discharged: false,
       dischargeDate: null,

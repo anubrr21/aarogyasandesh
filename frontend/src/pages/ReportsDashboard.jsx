@@ -91,7 +91,7 @@ const ReportsDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
@@ -100,17 +100,17 @@ const ReportsDashboard = () => {
     <div className="max-w-7xl mx-auto py-8 px-4">
       <button
         onClick={() => navigate('/staff')}
-        className="flex items-center gap-2 text-gray-500 hover:text-teal-600 transition-colors mb-6"
+        className="flex items-center gap-2 text-gray-500 hover:text-forest-700 transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Dashboard
       </button>
       <div className="flex items-center gap-3 mb-8">
-        <div className="p-2 bg-teal-50 rounded-xl border border-teal-200/50">
-          <FileText className="w-5 h-5 text-teal-600" />
+        <div className="p-2 bg-forest-50 rounded-xl border border-forest-200/50">
+          <FileText className="w-5 h-5 text-forest-700" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports Dashboard</h1>
+          <h1 className="text-2xl font-display font-semibold text-gray-900">Reports Dashboard</h1>
           <p className="text-sm text-gray-500">{reports.length} total documents across all patients</p>
         </div>
       </div>
@@ -123,13 +123,13 @@ const ReportsDashboard = () => {
             placeholder="Search by report name or patient..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+            className="w-full pl-12 pr-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
           />
         </div>
         <select
           value={selectedPatient}
           onChange={(e) => setSelectedPatient(e.target.value)}
-          className="px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all min-w-[150px]"
+          className="px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all min-w-[150px]"
         >
           <option value="all">All Patients</option>
           {patients.map((patient) => (
@@ -141,7 +141,7 @@ const ReportsDashboard = () => {
         <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
-          className="px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all min-w-[150px]"
+          className="px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all min-w-[150px]"
         >
           <option value="all">All Types</option>
           <option value="report">Reports</option>
@@ -207,7 +207,7 @@ const ReportsDashboard = () => {
                       href={report.downloadUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 py-1.5 bg-teal-50 text-teal-600 rounded-lg text-sm hover:bg-teal-100 transition-colors flex items-center justify-center gap-1"
+                      className="flex-1 py-1.5 bg-forest-50 text-forest-700 rounded-lg text-sm hover:bg-forest-100 transition-colors flex items-center justify-center gap-1"
                     >
                       <Eye className="w-3.5 h-3.5" />
                       View

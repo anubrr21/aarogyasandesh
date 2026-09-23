@@ -23,7 +23,7 @@ const BillGenerator = ({ patientId, onClose }) => {
 
   const hospitalName = 'AarogyaSandesh Super Speciality Hospital'
   const hospitalAddress = '123, Healthcare District, New Delhi - 110001'
-  const hospitalPhone = '+91 1800-123-4567'
+  const hospitalPhone = '+91 8977039397'
   const hospitalEmail = 'info@aarogyasandesh.com'
   const hospitalGST = 'GSTIN: 22AAAAA1234A1Z5'
 
@@ -293,7 +293,7 @@ const BillGenerator = ({ patientId, onClose }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
@@ -305,7 +305,7 @@ const BillGenerator = ({ patientId, onClose }) => {
         <p className="text-red-600 text-lg font-medium">{error}</p>
         <button
           onClick={() => onClose?.()}
-          className="mt-4 px-6 py-2 bg-teal-500 text-white rounded-xl hover:bg-teal-600 transition-colors"
+          className="mt-4 px-6 py-2 bg-forest-500 text-white rounded-xl hover:bg-forest-700 transition-colors"
         >
           Go Back
         </button>
@@ -328,12 +328,12 @@ const BillGenerator = ({ patientId, onClose }) => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => onClose?.()}
-            className="p-2 text-gray-500 hover:text-teal-600 rounded-xl hover:bg-teal-50 transition-colors"
+            className="p-2 text-gray-500 hover:text-forest-700 rounded-xl hover:bg-forest-50 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <FileText className="w-5 h-5 text-teal-600" />
+            <FileText className="w-5 h-5 text-forest-700" />
             <h2 className="text-xl font-bold text-gray-900">Bill Generator</h2>
           </div>
         </div>
@@ -341,7 +341,7 @@ const BillGenerator = ({ patientId, onClose }) => {
           <button
             onClick={generatePDF}
             disabled={generating}
-            className="px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-600 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generating ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -362,7 +362,7 @@ const BillGenerator = ({ patientId, onClose }) => {
 
       <div id="bill-content" className="bg-white rounded-xl p-8 border border-gray-200/50">
         <div className="text-center border-b border-gray-200/50 pb-6">
-          <h1 className="text-3xl font-bold text-teal-600">AarogyaSandesh</h1>
+          <h1 className="text-3xl font-bold text-forest-700">AarogyaSandesh</h1>
           <p className="text-sm text-gray-500">Super Speciality Hospital</p>
           <p className="text-xs text-gray-400">{hospitalAddress}</p>
           <p className="text-xs text-gray-400">Phone: {hospitalPhone} | Email: {hospitalEmail}</p>
@@ -445,7 +445,7 @@ const BillGenerator = ({ patientId, onClose }) => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-teal-50">
+                <tr className="bg-forest-50">
                   <th className="px-4 py-2 text-left text-gray-600">#</th>
                   <th className="px-4 py-2 text-left text-gray-600">Description</th>
                   <th className="px-4 py-2 text-left text-gray-600">Category</th>
@@ -478,7 +478,7 @@ const BillGenerator = ({ patientId, onClose }) => {
                 </tr>
                 <tr className="font-bold text-lg border-t-2 border-gray-300">
                   <td colSpan="3" className="px-4 py-3 text-right text-gray-900">Balance</td>
-                  <td className={`px-4 py-3 text-right ${billData.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <td className={`px-4 py-3 text-right ${billData.balance >= 0 ? 'text-forest-700' : 'text-red-600'}`}>
                     {billData.balance >= 0 ? '₹' : '-₹'}{Math.abs(billData.balance).toLocaleString()}
                     <span className="block text-xs font-normal text-gray-400">
                       {billData.balance >= 0 ? '(Refundable)' : '(Due)'}
@@ -518,9 +518,9 @@ const BillGenerator = ({ patientId, onClose }) => {
           <p className="text-xs text-gray-400">This is a system-generated bill. Please verify all details with the hospital accounts department.</p>
           <p className="text-xs text-gray-400 mt-1">Thank you for choosing AarogyaSandesh. Wishing you good health!</p>
           <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-400">
-            <span className="text-teal-600">✦</span>
+            <span className="text-forest-700">✦</span>
             Made in India
-            <span className="text-teal-600">✦</span>
+            <span className="text-forest-700">✦</span>
           </div>
         </div>
       </div>

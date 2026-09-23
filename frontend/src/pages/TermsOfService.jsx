@@ -9,7 +9,7 @@ const TermsOfService = () => {
     <div className="max-w-4xl mx-auto py-12 px-4">
       <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-2 text-gray-500 hover:text-teal-600 transition-colors mb-6"
+        className="flex items-center gap-2 text-gray-500 hover:text-forest-700 transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back
@@ -20,8 +20,8 @@ const TermsOfService = () => {
         className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-8 shadow-sm"
       >
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-teal-50 rounded-xl border border-teal-200/50">
-            <FileText className="w-6 h-6 text-teal-600" />
+          <div className="p-2 bg-forest-50 rounded-xl border border-forest-200/50">
+            <FileText className="w-6 h-6 text-forest-700" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Terms of Service</h1>
@@ -30,15 +30,15 @@ const TermsOfService = () => {
         </div>
 
         <div className="prose prose-sm max-w-none text-gray-600 space-y-6">
-          <div className="bg-teal-50/50 p-4 rounded-xl border border-teal-200/50">
-            <p className="text-sm text-teal-700">
+          <div className="bg-forest-50/50 p-4 rounded-xl border border-forest-200/50">
+            <p className="text-sm text-forest-800">
               By using <strong>AarogyaSandesh</strong>, you agree to these Terms of Service. Please read them carefully.
             </p>
           </div>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Users className="w-4 h-4 text-teal-500" />
+              <Users className="w-4 h-4 text-forest-500" />
               Acceptance of Terms
             </h2>
             <p>By accessing or using AarogyaSandesh, you agree to be bound by these Terms of Service. If you do not agree to all terms, please do not use the platform.</p>
@@ -46,7 +46,7 @@ const TermsOfService = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-teal-500" />
+              <Shield className="w-4 h-4 text-forest-500" />
               User Accounts
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -60,7 +60,7 @@ const TermsOfService = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Heart className="w-4 h-4 text-teal-500" />
+              <Heart className="w-4 h-4 text-forest-500" />
               Acceptable Use
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -75,7 +75,7 @@ const TermsOfService = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-teal-500" />
+              <Clock className="w-4 h-4 text-forest-500" />
               Medical Disclaimer
             </h2>
             <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/50">
@@ -95,7 +95,7 @@ const TermsOfService = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Scale className="w-4 h-4 text-teal-500" />
+              <Scale className="w-4 h-4 text-forest-500" />
               Limitations of Liability
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -109,7 +109,7 @@ const TermsOfService = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-teal-500" />
+              <AlertCircle className="w-4 h-4 text-forest-500" />
               Termination
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -122,7 +122,7 @@ const TermsOfService = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-teal-500" />
+              <FileText className="w-4 h-4 text-forest-500" />
               Changes to Terms
             </h2>
             <p>We may update these terms from time to time. Significant changes will be communicated through:</p>
@@ -135,17 +135,17 @@ const TermsOfService = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-teal-500" />
+              <Mail className="w-4 h-4 text-forest-500" />
               Contact Information
             </h2>
             <div className="mt-2 p-3 bg-gray-50 rounded-xl border border-gray-200/50">
               <p className="text-sm">📧 Email: aarogyasandesh.support@gmail.com</p>
-              <p className="text-sm">📞 Phone: +91 1800-123-4567</p>
+              <p className="text-sm">📞 Phone: +91 8977039397</p>
             </div>
           </section>
 
-          <div className="bg-teal-50/50 p-4 rounded-xl border border-teal-200/50">
-            <p className="text-sm text-teal-700 flex items-center gap-2">
+          <div className="bg-forest-50/50 p-4 rounded-xl border border-forest-200/50">
+            <p className="text-sm text-forest-800 flex items-center gap-2">
               <CheckCircle className="w-4 h-4" />
               By using AarogyaSandesh, you acknowledge that you have read, understood, and agree to these Terms of Service.
             </p>

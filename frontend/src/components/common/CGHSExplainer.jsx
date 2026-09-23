@@ -11,9 +11,9 @@ const CGHSExplainer = () => {
       title: 'Tier I Hospitals',
       description: 'NABH-accredited or equivalent hospitals meeting the highest quality standards for patient care, safety, and infrastructure. These hospitals follow strict protocols and have advanced medical facilities.',
       examples: 'Major corporate hospitals, super-specialty centers, and teaching hospitals with NABH accreditation.',
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-50/50',
-      border: 'border-emerald-200/50'
+      color: 'text-forest-400',
+      bg: 'bg-forest-50/50',
+      border: 'border-forest-200/50'
     },
     {
       id: 'TIER II',
@@ -44,9 +44,9 @@ const CGHSExplainer = () => {
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Award className="w-4 h-4 text-teal-500" />
+          <Award className="w-4 h-4 text-forest-500" />
           <span className="font-medium text-gray-900 text-sm">Understanding CGHS Rate Tiers & NABH</span>
-          <span className="px-2 py-0.5 bg-teal-50 text-teal-600 rounded-full text-xs border border-teal-200/50">
+          <span className="px-2 py-0.5 bg-forest-50 text-forest-700 rounded-full text-xs border border-forest-200/50">
             {expanded ? 'Hide' : 'Show'}
           </span>
         </div>
@@ -55,8 +55,8 @@ const CGHSExplainer = () => {
 
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
-          <div className="bg-teal-50/50 p-3 rounded-lg border border-teal-200/50 flex items-start gap-3">
-            <Info className="w-4 h-4 text-teal-500 mt-0.5 flex-shrink-0" />
+          <div className="bg-forest-50/50 p-3 rounded-lg border border-forest-200/50 flex items-start gap-3">
+            <Info className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
             <div>
               <p className="font-medium text-gray-900 text-sm">What is NABH?</p>
               <p className="text-xs text-gray-600">National Accreditation Board for Hospitals & Healthcare Providers - India's premier healthcare accreditation body ensuring quality standards, patient safety, and continuous improvement in healthcare delivery.</p>
@@ -80,9 +80,9 @@ const CGHSExplainer = () => {
             )
           })}
 
-          <div className="bg-teal-50/50 p-3 rounded-lg border border-teal-200/50">
-            <p className="text-xs text-teal-700 flex items-start gap-2">
-              <CheckCircle className="w-4 h-4 text-teal-500 mt-0.5 flex-shrink-0" />
+          <div className="bg-forest-50/50 p-3 rounded-lg border border-forest-200/50">
+            <p className="text-xs text-forest-800 flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-forest-500 mt-0.5 flex-shrink-0" />
               <span><span className="font-medium">How it works:</span> Each procedure has a benchmark rate set by CGHS. If a hospital charges more than 25% above this rate, the bill is flagged for review. This helps ensure transparency and fair pricing.</span>
             </p>
           </div>

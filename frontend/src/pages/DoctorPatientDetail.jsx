@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { db, storage, ref, uploadBytes, getDownloadURL, deleteObject } from '../firebase/firebase';
-import { doc, getDoc, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDocs } from 'firebase/firestore';
 import Logo from '../assets/Logo.png';
+import Wordmark from '../components/common/Wordmark';
 import { computeChainLink, verifyConsentChain,appendToImmutableLog } from '../utils/consentChain'
+import { searchMedicineReference } from '../data/medicineReference'
+import { formatDoctorName } from '../utils/formatDoctorName'
 import { getVitalStatus, getVitalIcon, VITALS_NORMAL_RANGES } from '../utils/vitalsUtils';
+import { sendPushNotification } from '../utils/pushNotifications';
 import { 
   ArrowLeft, 
   User, 
@@ -74,6 +78,7 @@ const DoctorPatientDetail = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [timeline, setTimeline] = useState([]);
   const [chainVerification, setChainVerification] = useState(null)
+  const [autoChainStatus, setAutoChainStatus] = useState(null)
   const [clinicalData, setClinicalData] = useState({
     diagnosis: [],
     medicines: [],
@@ -137,10 +142,14 @@ const DoctorPatientDetail = () => {
     frequency: '',
     route: 'Oral'
   });
+  const [medicineSuggestions, setMedicineSuggestions] = useState([]);
+  const [showMedicineSuggestions, setShowMedicineSuggestions] = useState(false);
+  const medicinePickedRef = useRef(false);
   const [vitalData, setVitalData] = useState({
     bp: '',
     pulse: '',
     temperature: '',
+    temperatureUnit: 'C',
     oxygenSaturation: '',
     respiratoryRate: ''
   });
@@ -201,11 +210,10 @@ const [doctorData, setDoctorData] = useState(null);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User },
-    { id: 'timeline', label: 'Timeline', icon: Clock },
     { id: 'clinical', label: 'Clinical', icon: Stethoscope },
-    
+    { id: 'notes', label: 'Notes', icon: MessageSquare },
+    { id: 'timeline', label: 'Timeline', icon: Clock },
     { id: 'reports', label: 'Reports', icon: FileText },
-      { id: 'notes', label: 'Notes', icon: MessageSquare },
   ];
 
   const routes = ['Oral', 'IV', 'Injection', 'Topical', 'Sublingual', 'Inhalation'];
@@ -236,9 +244,9 @@ const [doctorData, setDoctorData] = useState(null);
       },
       'medicine': { 
         icon: Pill, 
-        color: 'text-emerald-400', 
-        bg: 'bg-emerald-500/10', 
-        border: 'border-emerald-500/20',
+        color: 'text-forest-400', 
+        bg: 'bg-forest-600/10', 
+        border: 'border-forest-600/20',
         label: 'Medicine'
       },
       'vital': { 
@@ -250,9 +258,9 @@ const [doctorData, setDoctorData] = useState(null);
       },
       'note': { 
         icon: MessageSquare, 
-        color: 'text-cyan-400', 
-        bg: 'bg-cyan-500/10', 
-        border: 'border-cyan-500/20',
+        color: 'text-forest-400', 
+        bg: 'bg-forest-500/10', 
+        border: 'border-forest-500/20',
         label: 'Note'
       },
       'bill': { 
@@ -271,9 +279,9 @@ const [doctorData, setDoctorData] = useState(null);
       },
       'discharge': { 
         icon: CheckCircle, 
-        color: 'text-emerald-400', 
-        bg: 'bg-emerald-500/10', 
-        border: 'border-emerald-500/20',
+        color: 'text-forest-400', 
+        bg: 'bg-forest-600/10', 
+        border: 'border-forest-600/20',
         label: 'Discharge'
       },
       'procedure': { 
@@ -330,7 +338,7 @@ const [doctorData, setDoctorData] = useState(null);
       case 'medicine':
         return `${event.data?.name || 'Medicine'} ${event.data?.dosage || ''} - ${event.data?.frequency || ''} (${event.data?.route || 'Oral'})`;
       case 'vital':
-        return `BP: ${event.data?.bp || '--'} | Pulse: ${event.data?.pulse || '--'} | Temp: ${event.data?.temperature || '--'}°C | SpO2: ${event.data?.oxygenSaturation || '--'}% | RR: ${event.data?.respiratoryRate || '--'}/min`;
+        return `BP: ${event.data?.bp || '--'} | Pulse: ${event.data?.pulse || '--'} | Temp: ${event.data?.temperature || '--'}°${event.data?.temperatureUnit || 'C'} | SpO2: ${event.data?.oxygenSaturation || '--'}% | RR: ${event.data?.respiratoryRate || '--'}/min`;
       case 'note':
         return event.data?.text || 'Progress note added';
       case 'bill':
@@ -366,6 +374,7 @@ const [doctorData, setDoctorData] = useState(null);
         data,
         createdAt: new Date().toISOString()
       })
+      sendPushNotification({ userId: id, userType: 'family', title, message, data })
     } catch (error) {
       console.error('Error creating family notification:', error)
     }
@@ -376,6 +385,21 @@ const [doctorData, setDoctorData] = useState(null);
     setChainVerification(result)
     setTimeout(() => setChainVerification(null), 5000)
   }
+
+  useEffect(() => {
+    let cancelled = false
+    const checkChainAutomatically = async () => {
+      if (!(clinicalData.consentEvents || []).length) {
+        setAutoChainStatus(null)
+        return
+      }
+      const result = await verifyConsentChain(clinicalData.consentEvents, clinicalData.consentChainHead)
+      if (!cancelled) setAutoChainStatus(result)
+    }
+    checkChainAutomatically()
+    return () => { cancelled = true }
+  }, [clinicalData.consentEvents, clinicalData.consentChainHead])
+
   useEffect(() => {
   if (!user?.email) return;
   const fetchDoctorData = async () => {
@@ -393,58 +417,53 @@ const [doctorData, setDoctorData] = useState(null);
 }, [user]);
 
   useEffect(() => {
-    const fetchPatient = async () => {
-      try {
-        const docRef = doc(db, 'patients', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = { id: docSnap.id, ...docSnap.data() };
-          setPatient(data);
-          
-          const admitDate = new Date(data.admitDate);
-          const today = new Date();
-          const diffTime = Math.abs(today - admitDate);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setLengthOfStay(diffDays);
+    const docRef = doc(db, 'patients', id);
+    const unsubscribePatient = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() };
+        setPatient(data);
 
-          if (data.clinical) {
-            setClinicalData(data.clinical);
-          }
-          if (data.billing) {
-            setBillingData(data.billing);
-            const items = data.billing.items || [];
-            const deposits = data.billing.deposits || [];
-            const total = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-            const depTotal = deposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
-            setTotalBill(total);
-            setTotalDeposits(depTotal);
-            setBalance(depTotal - total);
-          }
-          if (data.discharge) {
-            setDischargeData(data.discharge);
-          }
-          if (data.reports) {
-            setReports(data.reports);
-          }
-          if (data.prescriptions) {
-            setPrescriptions(data.prescriptions);
-          }
-          if (data.familyNotes) {
-            setFamilyNotes(data.familyNotes);
-          }
+        const admitDate = new Date(data.admitDate);
+        const today = new Date();
+        const diffTime = Math.abs(today - admitDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        setLengthOfStay(diffDays);
+
+        if (data.clinical) {
+          setClinicalData(data.clinical);
         }
-      } catch (error) {
-        console.error('Error fetching patient:', error);
-      } finally {
-        setLoading(false);
+        if (data.billing) {
+          setBillingData(data.billing);
+          const items = data.billing.items || [];
+          const deposits = data.billing.deposits || [];
+          const total = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+          const depTotal = deposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+          setTotalBill(total);
+          setTotalDeposits(depTotal);
+          setBalance(depTotal - total);
+        }
+        if (data.discharge) {
+          setDischargeData(data.discharge);
+        }
+        if (data.reports) {
+          setReports(data.reports);
+        }
+        if (data.prescriptions) {
+          setPrescriptions(data.prescriptions);
+        }
+        if (data.familyNotes) {
+          setFamilyNotes(data.familyNotes);
+        }
       }
-    };
-
-    fetchPatient();
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching patient:', error);
+      setLoading(false);
+    });
 
     const timelineRef = collection(db, 'patients', id, 'timeline');
     const q = query(timelineRef);
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeTimeline = onSnapshot(q, (snapshot) => {
       const events = [];
       snapshot.forEach((doc) => {
         events.push({ id: doc.id, ...doc.data() });
@@ -457,7 +476,10 @@ const [doctorData, setDoctorData] = useState(null);
       console.error('Timeline listener error:', error);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribePatient();
+      unsubscribeTimeline();
+    };
   }, [id]);
 
   useEffect(() => {
@@ -532,6 +554,34 @@ const [doctorData, setDoctorData] = useState(null);
     const interval = setInterval(checkExpiredConsents, 60000);
     return () => clearInterval(interval);
   }, [clinicalData.consentEvents]);
+
+  // Medicine search — filters AarogyaSandesh's built-in medicine reference (real Indian
+  // brand + generic names, standard strengths/dosage forms) as the doctor types in the
+  // Prescribe Medicine modal. Pure in-memory filtering, so it's instant — no network call,
+  // nothing to time out. Manual typing still works exactly as before; this only adds an
+  // optional dropdown on top.
+  useEffect(() => {
+    if (medicinePickedRef.current) {
+      medicinePickedRef.current = false;
+      return;
+    }
+    const query = medicineData.name.trim();
+    if (!showAddMedicine || query.length < 2) {
+      setMedicineSuggestions([]);
+      setShowMedicineSuggestions(false);
+      return;
+    }
+    const matches = searchMedicineReference(query);
+    setMedicineSuggestions(matches);
+    setShowMedicineSuggestions(matches.length > 0);
+  }, [medicineData.name, showAddMedicine]);
+
+  const handlePickMedicine = (item) => {
+    medicinePickedRef.current = true;
+    setMedicineData(prev => ({ ...prev, name: item.name, dosage: item.dosage }));
+    setMedicineSuggestions([]);
+    setShowMedicineSuggestions(false);
+  };
 
   const addTimelineEvent = async (type, data) => {
     try {
@@ -716,7 +766,7 @@ const [doctorData, setDoctorData] = useState(null);
       type: 'doctor-note',
       data: { text, doctorName: doctorData?.name || 'Doctor' },
       timestamp: new Date().toISOString(),
-      staffName: `Dr. ${doctorData?.name || 'Doctor'}`
+      staffName: `${formatDoctorName(doctorData?.name)}`
     });
     
     // Notify family
@@ -724,7 +774,7 @@ const [doctorData, setDoctorData] = useState(null);
       userId: id,
       userType: 'family',
       title: `Doctor's Note`,
-      message: `Dr. ${doctorData?.name || 'Doctor'} sent a note: "${text.slice(0, 80)}"`,
+      message: `${formatDoctorName(doctorData?.name)} sent a note: "${text.slice(0, 80)}"`,
       type: 'note',
       read: false,
       data: { patientId: id },
@@ -812,14 +862,14 @@ const [doctorData, setDoctorData] = useState(null);
       type: 'doctor-note',
       data: { text: doctorNoteText.trim(), doctorName: doctorData?.name || 'Doctor', recipient: 'family' },
       timestamp: new Date().toISOString(),
-      staffName: `Dr. ${doctorData?.name || 'Doctor'}`
+      staffName: `${formatDoctorName(doctorData?.name)}`
     });
 
     await addDoc(collection(db, 'notifications'), {
       userId: id,
       userType: 'family',
       title: `Doctor's Note`,
-      message: `Dr. ${doctorData?.name || 'Doctor'} sent a note: "${doctorNoteText.trim().slice(0, 80)}"`,
+      message: `${formatDoctorName(doctorData?.name)} sent a note: "${doctorNoteText.trim().slice(0, 80)}"`,
       type: 'note',
       read: false,
       data: { patientId: id },
@@ -850,26 +900,26 @@ const handleSendDoctorStaffNote = async (e) => {
   setFormSuccess('');
 
   try {
-    const staffSnapshot = await getDocs(collection(db, 'staff'));
-    await Promise.all(staffSnapshot.docs.map(staffDoc =>
-      addDoc(collection(db, 'notifications'), {
-        userId: staffDoc.id,
-        userType: 'staff',
+    const notifyRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/notify-staff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         title: `Doctor's Note - ${patient?.name || 'Patient'}`,
-        message: `Dr. ${doctorData?.name || 'Doctor'}: "${doctorNoteText.trim().slice(0, 80)}"`,
+        message: `${formatDoctorName(doctorData?.name)}: "${doctorNoteText.trim().slice(0, 80)}"`,
         type: 'note',
-        read: false,
-        data: { patientId: id },
-        createdAt: new Date().toISOString()
+        data: { patientId: id }
       })
-    ));
+    });
+    if (!notifyRes.ok) {
+      throw new Error('Failed to notify staff');
+    }
 
     await addDoc(collection(db, 'patients', id, 'timeline'), {
       patientId: id,
       type: 'doctor-staff-note',
       data: { text: doctorNoteText.trim(), doctorName: doctorData?.name || 'Doctor' },
       timestamp: new Date().toISOString(),
-      staffName: `Dr. ${doctorData?.name || 'Doctor'}`
+      staffName: `${formatDoctorName(doctorData?.name)}`
     });
 
     setFormSuccess('Note sent to staff successfully!');
@@ -958,9 +1008,39 @@ const handleSendDoctorStaffNote = async (e) => {
           bp: '',
           pulse: '',
           temperature: '',
+          temperatureUnit: 'C',
           oxygenSaturation: '',
           respiratoryRate: ''
         });
+
+        // Automatic notification trigger — same pattern as the staff-side version, notifying family
+        // and the wider staff team the instant an abnormal reading is saved. The doctor viewing this
+        // page is already the patient's assigned doctor, so there's no separate "notify the doctor"
+        // step here — that would just notify the person who entered it.
+        const abnormalFlags = []
+        if (getVitalStatus('bp', newVital.bp).isAbnormal) abnormalFlags.push(`BP ${newVital.bp}`)
+        if (getVitalStatus('pulse', newVital.pulse).isAbnormal) abnormalFlags.push(`Pulse ${newVital.pulse} bpm`)
+        if (getVitalStatus('temperature', newVital.temperature, `°${newVital.temperatureUnit || 'C'}`).isAbnormal) {
+          abnormalFlags.push(`Temp ${newVital.temperature}°${newVital.temperatureUnit || 'C'}`)
+        }
+        if (getVitalStatus('oxygenSaturation', newVital.oxygenSaturation).isAbnormal) abnormalFlags.push(`SpO2 ${newVital.oxygenSaturation}%`)
+        if (getVitalStatus('respiratoryRate', newVital.respiratoryRate).isAbnormal) abnormalFlags.push(`RR ${newVital.respiratoryRate}/min`)
+
+        if (abnormalFlags.length > 0) {
+          const alertMessage = `${patient?.name || 'Patient'}: ${abnormalFlags.join(', ')}`
+          notifyFamily('⚠️ Abnormal Vitals Recorded', alertMessage, 'vitals', { patientId: id })
+          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/notify-staff`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: '⚠️ Abnormal Vitals Recorded',
+              message: alertMessage,
+              type: 'vitals',
+              data: { patientId: id }
+            })
+          }).catch(err => console.error('Error notifying staff of abnormal vitals:', err))
+        }
+
         setTimeout(() => {
           setFormSuccess('');
           setShowAddVital(false);
@@ -1378,7 +1458,7 @@ const handleSendDoctorStaffNote = async (e) => {
     return (
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-2 border-forest-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-500">Loading patient data...</p>
         </div>
       </div>
@@ -1390,10 +1470,10 @@ const handleSendDoctorStaffNote = async (e) => {
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center p-4">
         <div className="bg-white/80 backdrop-blur-xl border border-gray-200/50 rounded-3xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Patient Not Found</h2>
+          <h2 className="text-2xl font-display font-semibold text-gray-900 mb-2">Patient Not Found</h2>
           <button
             onClick={handleBack}
-            className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all duration-300"
+            className="w-full py-3 bg-gradient-to-r from-forest-500 to-forest-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all duration-300"
           >
             Back to Dashboard
           </button>
@@ -1440,23 +1520,23 @@ const handleSendDoctorStaffNote = async (e) => {
             <div className="flex items-center gap-4">
               <button 
                 onClick={handleBack}
-                className="p-2 text-gray-500 hover:text-teal-600 hover:bg-teal-500/10 rounded-xl transition-all duration-200"
+                className="p-2 text-gray-500 hover:text-forest-700 hover:bg-forest-500/10 rounded-xl transition-all duration-200"
               >
                 <ArrowLeft size={20} />
               </button>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/20">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20">
                   <img src={Logo} alt="AarogyaSandesh" className="w-10 h-10 object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">AarogyaSandesh</h1>
-                  <p className="text-xs text-teal-600">Patient Details</p>
+                  <Wordmark size="xs" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
+                  <p className="text-xs text-forest-700">Patient Details</p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-6">
-              <button className="relative p-2 text-gray-500 hover:text-teal-600 transition-colors">
+              <button className="relative p-2 text-gray-500 hover:text-forest-700 transition-colors">
                 <Bell size={20} />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
@@ -1481,7 +1561,7 @@ const handleSendDoctorStaffNote = async (e) => {
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white">
+              <div className="w-16 h-16 bg-gradient-to-br from-forest-500 to-forest-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white">
                 {patient.name?.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -1494,15 +1574,15 @@ const handleSendDoctorStaffNote = async (e) => {
                   <span>Access: {patient.accessCode}</span>
                   <span className="w-px h-3 bg-gray-200"></span>
                   {dischargeData.discharged ? (
-                    <span className="text-emerald-400">● Discharged</span>
+                    <span className="text-forest-400">● Discharged</span>
                   ) : (
-                    <span className="text-emerald-400">● Active</span>
+                    <span className="text-forest-400">● Active</span>
                   )}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="px-4 py-2 bg-teal-500/10 text-teal-600 rounded-xl text-sm border border-teal-500/20">
+              <span className="px-4 py-2 bg-forest-500/10 text-forest-700 rounded-xl text-sm border border-forest-500/20">
                 📅 {new Date(patient.admitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
             </div>
@@ -1522,9 +1602,9 @@ const handleSendDoctorStaffNote = async (e) => {
             <p className="text-sm text-gray-500">Deposits</p>
             <p className="text-xl font-bold text-yellow-400">₹{totalDeposits.toLocaleString()}</p>
           </div>
-          <div className={`bg-white/80 backdrop-blur-sm border rounded-xl p-4 ${balance >= 0 ? 'border-emerald-500/20' : 'border-red-500/20'}`}>
+          <div className={`bg-white/80 backdrop-blur-sm border rounded-xl p-4 ${balance >= 0 ? 'border-forest-600/20' : 'border-red-500/20'}`}>
             <p className="text-sm text-gray-500">Balance</p>
-            <p className={`text-xl font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <p className={`text-xl font-bold ${balance >= 0 ? 'text-forest-400' : 'text-red-400'}`}>
               {balance >= 0 ? '₹' : '-₹'}{Math.abs(balance).toLocaleString()}
             </p>
           </div>
@@ -1537,7 +1617,7 @@ const handleSendDoctorStaffNote = async (e) => {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-teal-500/10 text-teal-600 border border-teal-500/30'
+                  ? 'bg-forest-500/10 text-forest-700 border border-forest-500/30'
                   : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
               }`}
             >
@@ -1550,7 +1630,7 @@ const handleSendDoctorStaffNote = async (e) => {
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 min-h-[400px]">
           {activeTab === 'overview' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Patient Overview</h3>
+              <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">Patient Overview</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200/50">
                   <p className="text-sm text-gray-500">Patient ID</p>
@@ -1584,16 +1664,16 @@ const handleSendDoctorStaffNote = async (e) => {
                   <p className="text-sm text-gray-500">Diagnosis</p>
                   <p className="font-medium text-gray-900">{patient.problem}</p>
                 </div>
-                <div className="md:col-span-2 p-4 bg-teal-50/50 rounded-xl border border-teal-200/50">
+                <div className="md:col-span-2 p-4 bg-forest-50/50 rounded-xl border border-forest-200/50">
                   <p className="text-sm text-gray-500">Assigned Doctor</p>
                   <div className="flex flex-col md:flex-row md:items-center gap-3 mt-2">
                     <div className="flex-1">
                       {assignedDoctor ? (
-                        <div className="p-3 bg-white rounded-lg border border-teal-200">
+                        <div className="p-3 bg-white rounded-lg border border-forest-200">
                           <p className="font-medium text-gray-900">
                             {availableDoctors.find(d => d.id === assignedDoctor)?.name || 'Doctor assigned'}
                           </p>
-                          <p className="text-sm text-teal-600">
+                          <p className="text-sm text-forest-700">
                             {availableDoctors.find(d => d.id === assignedDoctor)?.specialization || ''}
                           </p>
                           {availableDoctors.find(d => d.id === assignedDoctor)?.department && (
@@ -1610,7 +1690,7 @@ const handleSendDoctorStaffNote = async (e) => {
                       <select
                         value={assignedDoctor || ''}
                         onChange={(e) => handleAssignDoctor(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500"
                       >
                         <option value="">Select a doctor</option>
                         {availableDoctors.map((doctor) => (
@@ -1657,12 +1737,12 @@ const handleSendDoctorStaffNote = async (e) => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Activity Timeline</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Activity Timeline</h3>
                   <p className="text-sm text-gray-500">{timeline.length} events recorded</p>
                 </div>
                 <button
                   onClick={() => setShowAddNote(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all duration-300 flex items-center gap-2 text-sm font-medium"
+                  className="px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all duration-300 flex items-center gap-2 text-sm font-medium"
                 >
                   <Plus size={16} />
                   Add Note
@@ -1741,7 +1821,7 @@ const handleSendDoctorStaffNote = async (e) => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Clinical Management</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Clinical Management</h3>
                   <p className="text-sm text-gray-500">Manage diagnosis, medicines, vitals, and consent</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -1754,7 +1834,7 @@ const handleSendDoctorStaffNote = async (e) => {
                   </button>
                   <button
                     onClick={() => setShowAddMedicine(true)}
-                    className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 bg-forest-600/10 text-forest-400 rounded-lg text-sm border border-forest-600/20 hover:bg-forest-600/20 transition-colors flex items-center gap-1"
                   >
                     <Pill size={14} />
                     Add Medicine
@@ -1803,9 +1883,71 @@ const handleSendDoctorStaffNote = async (e) => {
                     )}
                   </div>
 
+                  <div className="bg-gray-50/50 rounded-xl border border-violet-200/60 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-violet-500" />
+                        Doctor Notes
+                      </h4>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowDoctorFamilyNote(true)}
+                          className="px-3 py-1.5 bg-violet-100 text-violet-700 rounded-lg text-xs hover:bg-violet-200 transition-colors"
+                        >
+                          Send to Family
+                        </button>
+                        <button
+                          onClick={() => setShowDoctorStaffNote(true)}
+                          className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200 transition-colors"
+                        >
+                          Send to Staff
+                        </button>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const doctorToFamilyNotes = (familyNotes || []).filter(n => n.sentBy === 'doctor' && n.recipientType === 'family');
+                      return doctorToFamilyNotes.length > 0 ? (
+                        <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                          {doctorToFamilyNotes.slice().reverse().map((note) => (
+                            <div key={note.id} className="p-3 bg-violet-50 rounded-lg border border-violet-200">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-violet-700">To Family</span>
+                                <span className="text-xs text-gray-400">{new Date(note.sentAt).toLocaleString()}</span>
+                              </div>
+                              <p className="text-sm text-gray-900">{note.text}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">No notes sent to family yet</p>
+                      );
+                    })()}
+
+                    {(() => {
+                      const familyNotesList = (familyNotes || []).filter(n => n.sentBy === 'family');
+                      return familyNotesList.length > 0 ? (
+                        <div className="mt-3">
+                          <h5 className="text-xs font-medium text-gray-500 mb-2">From Family</h5>
+                          <div className="space-y-2 max-h-[150px] overflow-y-auto">
+                            {familyNotesList.slice().reverse().map((note) => (
+                              <div key={note.id} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-medium text-amber-700">Family</span>
+                                  <span className="text-xs text-gray-400">{new Date(note.sentAt).toLocaleString()}</span>
+                                </div>
+                                <p className="text-sm text-gray-900">{note.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+
                   <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
                     <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <Pill className="w-4 h-4 text-emerald-400" />
+                      <Pill className="w-4 h-4 text-forest-400" />
                       Medicines
                     </h4>
                     {(clinicalData.medicines || []).length === 0 ? (
@@ -1816,7 +1958,7 @@ const handleSendDoctorStaffNote = async (e) => {
                           <div key={index} className="p-3 bg-white/50 rounded-lg border border-gray-200/50">
                             <div className="flex items-center justify-between">
                               <p className="text-sm font-medium text-gray-900">{m.name}</p>
-                              <span className={`px-2 py-0.5 rounded-full text-xs ${m.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
+                              <span className={`px-2 py-0.5 rounded-full text-xs ${m.status === 'active' ? 'bg-forest-600/10 text-forest-400' : 'bg-gray-500/10 text-gray-400'}`}>
                                 {m.status || 'active'}
                               </span>
                             </div>
@@ -1852,7 +1994,7 @@ const handleSendDoctorStaffNote = async (e) => {
                               </div>
                               <div>
                                 <p className="text-gray-500">Temp</p>
-                                <p className="text-gray-900 font-medium">{v.temperature || '--'}°C</p>
+                                <p className="text-gray-900 font-medium">{v.temperature || '--'}°{v.temperatureUnit || 'C'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-500">SpO2</p>
@@ -1882,6 +2024,11 @@ const handleSendDoctorStaffNote = async (e) => {
                         </span>
                       )}
                     </h4>
+                    {autoChainStatus && !autoChainStatus.valid && (
+                      <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                        ⚠️ Something doesn't look right in this consent history. Please double-check these records.
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 mb-3">
                       <button
                         onClick={handleVerifyChain}
@@ -1890,7 +2037,7 @@ const handleSendDoctorStaffNote = async (e) => {
                         🔒 Verify Chain Integrity
                       </button>
                       {chainVerification && (
-                        <span className={`px-3 py-1 rounded-lg text-xs ${chainVerification.valid ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
+                        <span className={`px-3 py-1 rounded-lg text-xs ${chainVerification.valid ? 'bg-forest-600/10 text-forest-700' : 'bg-red-500/10 text-red-600'}`}>
                           {chainVerification.valid ? '✅ Chain verified — no tampering detected' : `⚠️ Chain broken at link ${chainVerification.brokenAt}`}
                         </span>
                       )}
@@ -1902,7 +2049,7 @@ const handleSendDoctorStaffNote = async (e) => {
                         {(clinicalData.consentEvents || []).slice().reverse().map((c, index) => (
                           <div key={index} className={`p-3 rounded-lg border ${
                             c.status === 'pending' ? 'bg-yellow-500/10 border-yellow-500/30' :
-                            c.status === 'approved' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                            c.status === 'approved' ? 'bg-forest-600/10 border-forest-600/30' :
                             c.status === 'rejected' ? 'bg-red-500/10 border-red-500/30' :
                             c.status === 'expired' ? 'bg-gray-700/30 border-gray-700/30' :
                             'bg-gray-700/30 border-gray-700/30'
@@ -1915,7 +2062,7 @@ const handleSendDoctorStaffNote = async (e) => {
                               <div className="flex items-center gap-2">
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${
                                   c.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                                  c.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                  c.status === 'approved' ? 'bg-forest-600/20 text-forest-400' :
                                   c.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
                                   c.status === 'expired' ? 'bg-gray-500/20 text-gray-400' :
                                   'bg-gray-500/20 text-gray-400'
@@ -1929,7 +2076,7 @@ const handleSendDoctorStaffNote = async (e) => {
                                   </div>
                                 )}
                                 {c.status === 'approved' && c.familySignature && (
-                                  <div className="text-xs text-emerald-400">
+                                  <div className="text-xs text-forest-400">
                                     ✓ {c.familySignature}
                                   </div>
                                 )}
@@ -1939,7 +2086,7 @@ const handleSendDoctorStaffNote = async (e) => {
                               {new Date(c.requestedAt).toLocaleString()} • {c.staffName}
                             </p>
                             {c.status === 'approved' && (
-                              <p className="text-xs text-emerald-400 mt-1">✓ Approved at {new Date(c.respondedAt).toLocaleString()}</p>
+                              <p className="text-xs text-forest-400 mt-1">✓ Approved at {new Date(c.respondedAt).toLocaleString()}</p>
                             )}
                             {c.status === 'rejected' && (
                               <p className="text-xs text-red-400 mt-1">✗ Rejected at {new Date(c.respondedAt).toLocaleString()}</p>
@@ -1951,68 +2098,6 @@ const handleSendDoctorStaffNote = async (e) => {
                         ))}
                       </div>
                     )}
-                    {/* Doctor Notes Section */}
-<div className="mt-6">
-  <div className="flex items-center justify-between mb-3">
-    <h4 className="font-medium text-gray-900 flex items-center gap-2">
-      <MessageSquare className="w-4 h-4 text-violet-500" />
-      Doctor Notes
-    </h4>
-    <div className="flex gap-2">
-      <button
-        onClick={() => setShowDoctorFamilyNote(true)}
-        className="px-3 py-1.5 bg-violet-100 text-violet-700 rounded-lg text-xs hover:bg-violet-200 transition-colors"
-      >
-        Send to Family
-      </button>
-      <button
-        onClick={() => setShowDoctorStaffNote(true)}
-        className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-200 transition-colors"
-      >
-        Send to Staff
-      </button>
-    </div>
-  </div>
-  
-  {(() => {
-    const doctorToFamilyNotes = (familyNotes || []).filter(n => n.sentBy === 'doctor' && n.recipientType === 'family');
-    return doctorToFamilyNotes.length > 0 ? (
-      <div className="space-y-2 max-h-[150px] overflow-y-auto">
-        {doctorToFamilyNotes.slice().reverse().map((note) => (
-          <div key={note.id} className="p-3 bg-violet-50 rounded-lg border border-violet-200">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-violet-700">To Family</span>
-              <span className="text-xs text-gray-400">{new Date(note.sentAt).toLocaleString()}</span>
-            </div>
-            <p className="text-sm text-gray-900">{note.text}</p>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <p className="text-sm text-gray-500">No notes sent to family yet</p>
-    );
-  })()}
-
-  {(() => {
-    const familyNotesList = (familyNotes || []).filter(n => n.sentBy === 'family');
-    return familyNotesList.length > 0 ? (
-      <div className="mt-3">
-        <h5 className="text-xs font-medium text-gray-500 mb-2">From Family</h5>
-        <div className="space-y-2 max-h-[150px] overflow-y-auto">
-          {familyNotesList.slice().reverse().map((note) => (
-            <div key={note.id} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-amber-700">Family</span>
-                <span className="text-xs text-gray-400">{new Date(note.sentAt).toLocaleString()}</span>
-              </div>
-              <p className="text-sm text-gray-900">{note.text}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    ) : null;
-  })()}
-</div>
                   </div>
                 </div>
               </div>
@@ -2023,7 +2108,7 @@ const handleSendDoctorStaffNote = async (e) => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Billing Management</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Billing Management</h3>
                   <p className="text-sm text-gray-500">Manage cost items and deposits</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -2120,7 +2205,7 @@ const handleSendDoctorStaffNote = async (e) => {
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Claim Status</span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${billingData.insurance?.claimStatus === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : billingData.insurance?.claimStatus === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${billingData.insurance?.claimStatus === 'approved' ? 'bg-forest-600/20 text-forest-400' : billingData.insurance?.claimStatus === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                           {billingData.insurance?.claimStatus || 'pending'}
                         </span>
                       </div>
@@ -2143,7 +2228,7 @@ const handleSendDoctorStaffNote = async (e) => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Discharge Management</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Discharge Management</h3>
                   <p className="text-sm text-gray-500">
                     {dischargeData.discharged ? 'Patient discharged successfully' : `${checklistProgress}/${totalChecklistItems} checklist items completed`}
                   </p>
@@ -2155,7 +2240,7 @@ const handleSendDoctorStaffNote = async (e) => {
                       disabled={!allChecklistComplete}
                       className={`px-4 py-2 rounded-xl transition-all duration-300 flex items-center gap-2 text-sm font-medium ${
                         allChecklistComplete
-                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-500/25'
+                          ? 'bg-gradient-to-r from-forest-600 to-forest-500 text-white hover:shadow-lg hover:shadow-forest-600/25'
                           : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
                       }`}
                     >
@@ -2168,16 +2253,16 @@ const handleSendDoctorStaffNote = async (e) => {
 
               {dischargeData.discharged ? (
                 <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-10 h-10 text-emerald-400" />
+                  <div className="w-20 h-20 bg-forest-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-10 h-10 text-forest-400" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Patient Discharged Successfully</h3>
+                  <h3 className="text-xl font-display font-semibold text-gray-900 mb-2">Patient Discharged Successfully</h3>
                   <p className="text-gray-500">
                     Discharged on {new Date(dischargeData.actualTime).toLocaleString()}
                   </p>
                   <button
                     onClick={() => setShowFinalBill(true)}
-                    className="mt-4 px-6 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
+                    className="mt-4 px-6 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
                   >
                     <FileText size={16} />
                     View Final Bill
@@ -2189,7 +2274,7 @@ const handleSendDoctorStaffNote = async (e) => {
                     <div className="space-y-4">
                       <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
                         <h4 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-                          <CheckSquare className="w-4 h-4 text-teal-600" />
+                          <CheckSquare className="w-4 h-4 text-forest-700" />
                           Discharge Checklist
                           <span className="ml-auto text-sm text-gray-500">{checklistProgress}/{totalChecklistItems}</span>
                         </h4>
@@ -2203,23 +2288,23 @@ const handleSendDoctorStaffNote = async (e) => {
                                 onClick={() => toggleChecklistItem(item.id)}
                                 className={`w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 ${
                                   isChecked
-                                    ? 'bg-emerald-500/10 border border-emerald-500/30'
+                                    ? 'bg-forest-600/10 border border-forest-600/30'
                                     : 'bg-gray-50/50 border border-gray-200/50 hover:border-gray-300'
                                 }`}
                               >
                                 <div className="flex items-center gap-3">
                                   {isChecked ? (
-                                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                                    <CheckCircle className="w-5 h-5 text-forest-400" />
                                   ) : (
                                     <Square className="w-5 h-5 text-gray-500" />
                                   )}
-                                  <Icon className={`w-4 h-4 ${isChecked ? 'text-emerald-400' : 'text-gray-500'}`} />
+                                  <Icon className={`w-4 h-4 ${isChecked ? 'text-forest-400' : 'text-gray-500'}`} />
                                   <span className={`text-sm ${isChecked ? 'text-gray-900' : 'text-gray-500'}`}>
                                     {item.label}
                                   </span>
                                 </div>
                                 {isChecked && (
-                                  <span className="text-xs text-emerald-400">✓ Done</span>
+                                  <span className="text-xs text-forest-400">✓ Done</span>
                                 )}
                               </button>
                             );
@@ -2227,7 +2312,7 @@ const handleSendDoctorStaffNote = async (e) => {
                         </div>
                         <div className="mt-4 w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-500"
+                            className="h-full bg-gradient-to-r from-forest-500 to-forest-600 rounded-full transition-all duration-500"
                             style={{ width: `${(checklistProgress / totalChecklistItems) * 100}%` }}
                           />
                         </div>
@@ -2251,7 +2336,7 @@ const handleSendDoctorStaffNote = async (e) => {
                                 setEstimatedTime('');
                                 document.getElementById('timePicker')?.focus();
                               }}
-                              className="mt-2 text-xs text-teal-600 hover:text-teal-700 transition-colors"
+                              className="mt-2 text-xs text-forest-700 hover:text-forest-800 transition-colors"
                             >
                               Update Time
                             </button>
@@ -2277,13 +2362,13 @@ const handleSendDoctorStaffNote = async (e) => {
                           <p className="text-red-400 text-sm mt-2">{formError}</p>
                         )}
                         {formSuccess && (
-                          <p className="text-emerald-400 text-sm mt-2">{formSuccess}</p>
+                          <p className="text-forest-400 text-sm mt-2">{formSuccess}</p>
                         )}
                       </div>
 
                       <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
                         <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                          <FileCheck className="w-4 h-4 text-teal-600" />
+                          <FileCheck className="w-4 h-4 text-forest-700" />
                           Discharge Summary
                         </h4>
                         <div className="space-y-2 text-sm">
@@ -2309,7 +2394,7 @@ const handleSendDoctorStaffNote = async (e) => {
                           </div>
                           <div className="flex justify-between border-t border-gray-200/50 pt-2">
                             <span className="text-gray-500">Balance</span>
-                            <span className={balance >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                            <span className={balance >= 0 ? 'text-forest-400' : 'text-red-400'}>
                               {balance >= 0 ? '₹' : '-₹'}{Math.abs(balance).toLocaleString()}
                             </span>
                           </div>
@@ -2326,7 +2411,7 @@ const handleSendDoctorStaffNote = async (e) => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Reports & Diagnostics</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Reports & Diagnostics</h3>
                   <p className="text-sm text-gray-500">{reports.length} reports uploaded</p>
                 </div>
                 <div className="flex gap-2">
@@ -2368,7 +2453,7 @@ const handleSendDoctorStaffNote = async (e) => {
                             key={report.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-gray-50/50 rounded-xl border border-gray-200/50 overflow-hidden hover:border-teal-500/30 transition-all duration-300"
+                            className="bg-gray-50/50 rounded-xl border border-gray-200/50 overflow-hidden hover:border-forest-500/30 transition-all duration-300"
                           >
                             {report.fileType?.includes('image') ? (
                               <div className="relative h-48 bg-gray-100/50 overflow-hidden">
@@ -2403,7 +2488,7 @@ const handleSendDoctorStaffNote = async (e) => {
                                     href={report.downloadUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="p-1.5 text-gray-500 hover:text-teal-600 transition-colors"
+                                    className="p-1.5 text-gray-500 hover:text-forest-700 transition-colors"
                                     title="View Report"
                                   >
                                     <Eye size={16} />
@@ -2516,7 +2601,7 @@ const handleSendDoctorStaffNote = async (e) => {
   <div>
     <div className="flex items-center justify-between mb-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">Doctor Notes</h3>
+        <h3 className="text-lg font-display font-semibold text-gray-900">Doctor Notes</h3>
         <p className="text-sm text-gray-500">View all notes for this patient</p>
       </div>
     </div>
@@ -2542,7 +2627,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
                   note.sentBy === 'doctor' ? 'bg-violet-200 text-violet-700' : 'bg-amber-200 text-amber-700'
                 }`}>
-                  {note.sentBy === 'doctor' ? `Dr. ${note.doctorName || 'Doctor'}` : 'Family'}
+                  {note.sentBy === 'doctor' ? formatDoctorName(note.doctorName) : 'Family'}
                 </span>
                 <span className="text-xs text-gray-400">
                   {new Date(note.sentAt).toLocaleString()}
@@ -2581,8 +2666,8 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-teal-600" />
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-forest-700" />
                   Add Progress Note
                 </h3>
                 <button 
@@ -2604,7 +2689,7 @@ const handleSendDoctorStaffNote = async (e) => {
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     placeholder="Enter progress note..."
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300 min-h-[120px]"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300 min-h-[120px]"
                     rows="4"
                     required
                   />
@@ -2618,7 +2703,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2638,7 +2723,7 @@ const handleSendDoctorStaffNote = async (e) => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all"
                   >
                     Add Note
                   </button>
@@ -2671,7 +2756,7 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <Brain className="w-5 h-5 text-purple-400" />
                   Add Diagnosis
                 </h3>
@@ -2719,7 +2804,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2772,8 +2857,8 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Pill className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
+                  <Pill className="w-5 h-5 text-forest-400" />
                   Prescribe Medicine
                 </h3>
                 <button 
@@ -2789,16 +2874,40 @@ const handleSendDoctorStaffNote = async (e) => {
               </div>
 
               <form onSubmit={handleAddMedicine}>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Medicine Name *</label>
-                  <input
-                    type="text"
-                    value={medicineData.name}
-                    onChange={(e) => setMedicineData({ ...medicineData, name: e.target.value })}
-                    placeholder="Enter medicine name"
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
-                    required
-                  />
+                <div className="mb-4 relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                    Medicine Name *
+                    <span className="text-[10px] font-normal text-gray-400">(search or type manually)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={medicineData.name}
+                      onChange={(e) => setMedicineData({ ...medicineData, name: e.target.value })}
+                      onFocus={() => { if (medicineSuggestions.length > 0) setShowMedicineSuggestions(true); }}
+                      onBlur={() => setTimeout(() => setShowMedicineSuggestions(false), 150)}
+                      placeholder="Enter or search medicine name"
+                      className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
+                      required
+                      autoComplete="off"
+                    />
+                  </div>
+                  {showMedicineSuggestions && medicineSuggestions.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+                      {medicineSuggestions.map((item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          onMouseDown={() => handlePickMedicine(item)}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-forest-50 transition-colors border-b border-gray-100 last:border-b-0"
+                        >
+                          <span className="text-gray-900 font-medium">{item.name}</span>
+                          <span className="text-gray-400"> — {item.dosage}</span>
+                        </button>
+                      ))}
+                      <div className="px-4 py-1.5 text-[10px] text-gray-400 bg-gray-50">AarogyaSandesh built-in medicine reference</div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mb-4">
@@ -2808,7 +2917,7 @@ const handleSendDoctorStaffNote = async (e) => {
                     value={medicineData.dosage}
                     onChange={(e) => setMedicineData({ ...medicineData, dosage: e.target.value })}
                     placeholder="e.g., 500mg"
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
                     required
                   />
                 </div>
@@ -2820,7 +2929,7 @@ const handleSendDoctorStaffNote = async (e) => {
                     value={medicineData.frequency}
                     onChange={(e) => setMedicineData({ ...medicineData, frequency: e.target.value })}
                     placeholder="e.g., Twice daily"
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
                     required
                   />
                 </div>
@@ -2830,7 +2939,7 @@ const handleSendDoctorStaffNote = async (e) => {
                   <select
                     value={medicineData.route}
                     onChange={(e) => setMedicineData({ ...medicineData, route: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
                   >
                     {routes.map((route) => (
                       <option key={route} value={route}>{route}</option>
@@ -2846,7 +2955,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2866,7 +2975,7 @@ const handleSendDoctorStaffNote = async (e) => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-600 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-600/25 transition-all"
                   >
                     Prescribe
                   </button>
@@ -2899,7 +3008,7 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <HeartPulse className="w-5 h-5 text-amber-400" />
                   Log Vitals
                 </h3>
@@ -2945,9 +3054,25 @@ const handleSendDoctorStaffNote = async (e) => {
                       type="text"
                       value={vitalData.temperature}
                       onChange={(e) => setVitalData({ ...vitalData, temperature: e.target.value })}
-                      placeholder="e.g., 98.6"
+                      placeholder={vitalData.temperatureUnit === 'F' ? 'e.g., 98.6' : 'e.g., 37'}
                       className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-300"
                     />
+                    <div className="flex w-fit rounded-xl border border-gray-200 overflow-hidden mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setVitalData({ ...vitalData, temperatureUnit: 'C' })}
+                        className={`px-3 py-1 text-sm font-medium transition-colors ${vitalData.temperatureUnit === 'F' ? 'bg-white/50 text-gray-500' : 'bg-amber-500 text-white'}`}
+                      >
+                        °C
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVitalData({ ...vitalData, temperatureUnit: 'F' })}
+                        className={`px-3 py-1 text-sm font-medium transition-colors ${vitalData.temperatureUnit === 'F' ? 'bg-amber-500 text-white' : 'bg-white/50 text-gray-500'}`}
+                      >
+                        °F
+                      </button>
+                    </div>
                   </div>
                   <div className="mb-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">SpO2</label>
@@ -2979,7 +3104,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3032,7 +3157,7 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-rose-400" />
                   Add Bill Item
                 </h3>
@@ -3096,7 +3221,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3149,7 +3274,7 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <FilePlus className="w-5 h-5 text-yellow-400" />
                   Add Deposit Request
                 </h3>
@@ -3213,7 +3338,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3266,7 +3391,7 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-violet-400" />
                   Request Consent
                 </h3>
@@ -3336,7 +3461,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3391,7 +3516,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <AlertTriangle className="w-8 h-8 text-amber-400" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Discharge</h3>
+                <h3 className="text-xl font-display font-semibold text-gray-900 mb-2">Confirm Discharge</h3>
                 <p className="text-gray-500 mb-6">
                   Are you sure you want to discharge {patient.name}?<br />
                   All checklist items are completed. This action cannot be undone.
@@ -3411,7 +3536,7 @@ const handleSendDoctorStaffNote = async (e) => {
                   </button>
                   <button
                     onClick={handleDischargePatient}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-600 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-600/25 transition-all"
                   >
                     Confirm Discharge
                   </button>
@@ -3442,12 +3567,12 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Final Bill</h3>
+                <h3 className="text-2xl font-display font-semibold text-gray-900">Final Bill</h3>
                 <div className="flex gap-2">
-                  <button className="p-2 text-gray-500 hover:text-teal-600 transition-colors">
+                  <button className="p-2 text-gray-500 hover:text-forest-700 transition-colors">
                     <Download size={20} />
                   </button>
-                  <button className="p-2 text-gray-500 hover:text-teal-600 transition-colors">
+                  <button className="p-2 text-gray-500 hover:text-forest-700 transition-colors">
                     <Printer size={20} />
                   </button>
                   <button 
@@ -3463,7 +3588,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 <div className="border-b border-gray-200/50 pb-4">
                   <div className="flex items-center gap-2 mb-2">
                     <img src={Logo} alt="AarogyaSandesh" className="w-8 h-8 object-contain" />
-                    <span className="text-lg font-bold text-gray-900">AarogyaSandesh</span>
+                    <Wordmark size="sm" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
                   </div>
                   <p className="text-xs text-gray-500">A Health Update, Delivered</p>
                 </div>
@@ -3521,12 +3646,12 @@ const handleSendDoctorStaffNote = async (e) => {
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t border-gray-200/50 pt-2">
                     <span className="text-gray-900">Balance</span>
-                    <span className={balance >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                    <span className={balance >= 0 ? 'text-forest-400' : 'text-red-400'}>
                       {balance >= 0 ? '₹' : '-₹'}{Math.abs(balance).toLocaleString()}
                     </span>
                   </div>
                   {balance > 0 && (
-                    <p className="text-xs text-emerald-400">Amount to be refunded</p>
+                    <p className="text-xs text-forest-400">Amount to be refunded</p>
                   )}
                   {balance < 0 && (
                     <p className="text-xs text-red-400">Amount due from family</p>
@@ -3550,7 +3675,7 @@ const handleSendDoctorStaffNote = async (e) => {
                       setShowFinalBill(false);
                       navigate('/doctor');
                     }}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all flex items-center justify-center gap-2"
                   >
                     <Home size={16} />
                     Return to Dashboard
@@ -3587,7 +3712,7 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <Upload className="w-5 h-5 text-amber-400" />
                   Upload Report
                 </h3>
@@ -3634,7 +3759,7 @@ const handleSendDoctorStaffNote = async (e) => {
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Select File *</label>
-                  <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${reportFile ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${reportFile ? 'border-forest-600/50 bg-forest-600/5' : 'border-gray-200 hover:border-gray-300'}`}>
                     <input
                       type="file"
                       accept=".jpg,.jpeg,.png,.gif,.pdf"
@@ -3679,7 +3804,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3751,7 +3876,7 @@ const handleSendDoctorStaffNote = async (e) => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <FileSignature className="w-5 h-5 text-pink-400" />
                   Upload Prescription
                 </h3>
@@ -3857,7 +3982,7 @@ const handleSendDoctorStaffNote = async (e) => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3927,7 +4052,7 @@ const handleSendDoctorStaffNote = async (e) => {
         className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-violet-500" />
             Send Note to Family
           </h3>
@@ -3965,7 +4090,7 @@ const handleSendDoctorStaffNote = async (e) => {
           )}
 
           {formSuccess && (
-            <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+            <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
               <CheckCircle size={18} />
               <span>{formSuccess}</span>
             </div>
@@ -4021,7 +4146,7 @@ const handleSendDoctorStaffNote = async (e) => {
         className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
             <MessageSquare className="w-5 h-5 text-blue-500" />
             Send Note to Staff
           </h3>
@@ -4059,7 +4184,7 @@ const handleSendDoctorStaffNote = async (e) => {
           )}
 
           {formSuccess && (
-            <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+            <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
               <CheckCircle size={18} />
               <span>{formSuccess}</span>
             </div>
@@ -4080,7 +4205,7 @@ const handleSendDoctorStaffNote = async (e) => {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all"
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/25 transition-all"
             >
               Send to Staff
             </button>

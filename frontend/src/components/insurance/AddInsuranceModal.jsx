@@ -100,7 +100,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-teal-600" />
+            <Shield className="w-5 h-5 text-forest-700" />
             <h2 className="text-xl font-bold text-gray-900">Add Insurance Policy</h2>
           </div>
           <button
@@ -121,7 +121,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 value={formData.provider}
                 onChange={handleChange}
                 placeholder="e.g., Star Health, ICICI Lombard"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               />
             </div>
@@ -133,7 +133,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 value={formData.policyNumber}
                 onChange={handleChange}
                 placeholder="Enter policy number"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               />
             </div>
@@ -143,7 +143,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 name="policyType"
                 value={formData.policyType}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
               >
                 {policyTypes.map((type) => (
                   <option key={type} value={type}>{type}</option>
@@ -158,7 +158,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 value={formData.sumInsured}
                 onChange={handleChange}
                 placeholder="Enter amount"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               />
             </div>
@@ -169,7 +169,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 name="startDate"
                 value={formData.startDate}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
               />
             </div>
             <div>
@@ -179,7 +179,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 name="expiryDate"
                 value={formData.expiryDate}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                 required
               />
             </div>
@@ -191,7 +191,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 value={formData.tpaName}
                 onChange={handleChange}
                 placeholder="Third Party Administrator"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
               />
             </div>
             <div>
@@ -202,7 +202,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 value={formData.memberNumber}
                 onChange={handleChange}
                 placeholder="Member ID"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
               />
             </div>
             <div className="sm:col-span-2">
@@ -213,14 +213,14 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 value={formData.networkHospitals}
                 onChange={handleChange}
                 placeholder="List of network hospitals (comma separated)"
-                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Policy Document</label>
-            <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-teal-400 transition-all">
+            <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-forest-400 transition-all">
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
@@ -228,7 +228,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               {documentFile ? (
-                <div className="flex items-center justify-center gap-2 text-sm text-teal-600">
+                <div className="flex items-center justify-center gap-2 text-sm text-forest-700">
                   <CheckCircle className="w-4 h-4" />
                   <span>{documentFile.name}</span>
                 </div>
@@ -249,7 +249,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
           )}
 
           {success && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-forest-50 border border-forest-200 rounded-xl text-forest-700 text-sm">
               <CheckCircle className="w-4 h-4 flex-shrink-0" />
               <span>{success}</span>
             </div>
@@ -266,7 +266,7 @@ const AddInsuranceModal = ({ onClose, patientId, patientName }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-2.5 bg-gradient-to-r from-forest-500 to-forest-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

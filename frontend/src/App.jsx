@@ -20,6 +20,7 @@ import BillGeneratorPage from './pages/BillGeneratorPage'
 import PassScanner from './components/staff/PassScanner'
 import DoctorPortal from './pages/DoctorPortal';
 import DoctorPatientDetail from './pages/DoctorPatientDetail';
+import HospitalCommandCenter from './pages/HospitalCommandCenter';
 
 function App() {
   return (
@@ -84,6 +85,11 @@ function App() {
               <Route path="/staff/reports-dashboard" element={
                 <ProtectedRoute requiredRole="staff">
                   <ReportsDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="/staff/command-center" element={
+                <ProtectedRoute requiredRole="staff">
+                  <HospitalCommandCenter />
                 </ProtectedRoute>
               } />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />

@@ -153,7 +153,7 @@ ${userQuestion}
             <div
               className={`max-w-[85%] p-3 rounded-xl ${
                 msg.role === 'user'
-                  ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white'
+                  ? 'bg-gradient-to-r from-forest-500 to-forest-600 text-white'
                   : 'bg-white border border-gray-200/50 text-gray-700 shadow-sm'
               }`}
             >

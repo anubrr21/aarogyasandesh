@@ -62,9 +62,11 @@
         "billing": "Billing",
         "bill_check": "Bill Check",
         "hospital_info": "Hospital Info",
+        "no_visiting_hours": "No visiting hours assigned for this patient",
         "insurance": "Insurance",
         "discharge": "Discharge",
-        "reports": "Reports"
+        "reports": "Reports",
+        "diagnosisInfo": "Diagnosis Info"
       }
     },
     "patient": {
@@ -92,7 +94,11 @@
       "no_diagnosis": "No diagnosis recorded",
       "no_medicines": "No medicines prescribed",
       "no_vitals": "No vitals logged",
-      "no_consent": "No consent requests"
+      "no_consent": "No consent requests",
+      "consent_chain_warning": "Something doesn't look right in this consent history. Please contact hospital staff to double-check these records.",
+      "consent_info_toggle": "How does this work?",
+      "consent_info_title": "How the Consent Ledger Works",
+      "consent_info_text": "Every time a consent request is created, approved, or rejected, the app saves a permanent, time-stamped record of it — and links it to the record right before it, like a chain of receipts where each new one carries a copy of the one before. If anyone ever tried to sneak in a fake entry, delete one, or quietly change what happened afterward, the chain wouldn't match up anymore, and the app would notice right away and show a warning here. This means your consent history can't be secretly altered after the fact, giving you a reliable, tamper-evident record of every decision made about your care."
     },
     "billing": {
       "title": "Billing Details",

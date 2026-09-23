@@ -161,9 +161,9 @@ export const useInsurance = () => {
       'Draft': 'text-gray-500',
       'Submitted': 'text-blue-500',
       'Under Review': 'text-yellow-500',
-      'Approved': 'text-emerald-500',
+      'Approved': 'text-forest-600',
       'Rejected': 'text-red-500',
-      'Settled': 'text-teal-500'
+      'Settled': 'text-forest-500'
     }
     return colors[status] || 'text-gray-500'
   }
@@ -173,9 +173,9 @@ export const useInsurance = () => {
       'Draft': 'bg-gray-100 text-gray-700 border-gray-200',
       'Submitted': 'bg-blue-50 text-blue-700 border-blue-200',
       'Under Review': 'bg-yellow-50 text-yellow-700 border-yellow-200',
-      'Approved': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'Approved': 'bg-forest-50 text-forest-800 border-forest-200',
       'Rejected': 'bg-red-50 text-red-700 border-red-200',
-      'Settled': 'bg-teal-50 text-teal-700 border-teal-200'
+      'Settled': 'bg-forest-50 text-forest-800 border-forest-200'
     }
     return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200'
   }

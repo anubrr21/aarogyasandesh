@@ -5,8 +5,11 @@ import { useAuth } from '../context/AuthContext';
 import { db, storage, ref, uploadBytes, getDownloadURL, deleteObject } from '../firebase/firebase';
 import { doc, getDoc, collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDocs } from 'firebase/firestore';
 import Logo from '../assets/Logo.png';
+import Wordmark from '../components/common/Wordmark';
 import { computeChainLink, verifyConsentChain,appendToImmutableLog } from '../utils/consentChain'
 import { getVitalStatus, getVitalIcon, VITALS_NORMAL_RANGES } from '../utils/vitalsUtils';
+import { formatDoctorName } from '../utils/formatDoctorName';
+import { sendPushNotification } from '../utils/pushNotifications';
 import { 
   ArrowLeft, 
   User, 
@@ -63,8 +66,17 @@ import {
   Check,
   X as XIcon,
   Timer,
-  FileSignature
+  FileSignature,
+  Pencil,
+  Receipt
 } from 'lucide-react';
+import PaymentStatusBadge from '../components/billing/PaymentStatusBadge';
+import CategoryBreakdown from '../components/billing/CategoryBreakdown';
+import BillingSummaryPanel from '../components/billing/BillingSummaryPanel';
+import { getItemStatus, computePaymentTotals, getInvoiceNumber, BILL_CATEGORIES } from '../utils/billingHelpers';
+import { downloadInvoicePDF, printInvoicePDF } from '../utils/generateInvoicePDF';
+import VitalsTrendSummary from '../components/discharge/VitalsTrendSummary';
+import DischargeSummaryView from '../components/discharge/DischargeSummaryView';
 
 const PatientDetail = () => {
   const { id } = useParams();
@@ -74,6 +86,7 @@ const PatientDetail = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [timeline, setTimeline] = useState([]);
   const [chainVerification, setChainVerification] = useState(null)
+  const [autoChainStatus, setAutoChainStatus] = useState(null)
   const [clinicalData, setClinicalData] = useState({
     diagnosis: [],
     medicines: [],
@@ -102,7 +115,10 @@ const PatientDetail = () => {
     estimatedTime: null,
     actualTime: null,
     discharged: false,
-    dischargeSummary: null
+    dischargeSummary: null,
+    doctorNotes: '',
+    instructions: '',
+    followUpDate: ''
   });
   const [reports, setReports] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
@@ -141,6 +157,7 @@ const PatientDetail = () => {
     bp: '',
     pulse: '',
     temperature: '',
+    temperatureUnit: 'C',
     oxygenSaturation: '',
     respiratoryRate: ''
   });
@@ -154,6 +171,8 @@ const PatientDetail = () => {
     reason: '',
     urgency: 'routine'
   });
+  const [editingBillItemIndex, setEditingBillItemIndex] = useState(null);
+  const [editingDepositIndex, setEditingDepositIndex] = useState(null);
   const [consentData, setConsentData] = useState({
     type: 'surgery',
     explanation: '',
@@ -234,9 +253,9 @@ const PatientDetail = () => {
       },
       'medicine': { 
         icon: Pill, 
-        color: 'text-emerald-400', 
-        bg: 'bg-emerald-500/10', 
-        border: 'border-emerald-500/20',
+        color: 'text-forest-400', 
+        bg: 'bg-forest-600/10', 
+        border: 'border-forest-600/20',
         label: 'Medicine'
       },
       'vital': { 
@@ -248,9 +267,9 @@ const PatientDetail = () => {
       },
       'note': { 
         icon: MessageSquare, 
-        color: 'text-cyan-400', 
-        bg: 'bg-cyan-500/10', 
-        border: 'border-cyan-500/20',
+        color: 'text-forest-400', 
+        bg: 'bg-forest-500/10', 
+        border: 'border-forest-500/20',
         label: 'Note'
       },
       'bill': { 
@@ -269,9 +288,9 @@ const PatientDetail = () => {
       },
       'discharge': { 
         icon: CheckCircle, 
-        color: 'text-emerald-400', 
-        bg: 'bg-emerald-500/10', 
-        border: 'border-emerald-500/20',
+        color: 'text-forest-400', 
+        bg: 'bg-forest-600/10', 
+        border: 'border-forest-600/20',
         label: 'Discharge'
       },
       'procedure': { 
@@ -328,7 +347,7 @@ const PatientDetail = () => {
       case 'medicine':
         return `${event.data?.name || 'Medicine'} ${event.data?.dosage || ''} - ${event.data?.frequency || ''} (${event.data?.route || 'Oral'})`;
       case 'vital':
-        return `BP: ${event.data?.bp || '--'} | Pulse: ${event.data?.pulse || '--'} | Temp: ${event.data?.temperature || '--'}°C | SpO2: ${event.data?.oxygenSaturation || '--'}% | RR: ${event.data?.respiratoryRate || '--'}/min`;
+        return `BP: ${event.data?.bp || '--'} | Pulse: ${event.data?.pulse || '--'} | Temp: ${event.data?.temperature || '--'}°${event.data?.temperatureUnit || 'C'} | SpO2: ${event.data?.oxygenSaturation || '--'}% | RR: ${event.data?.respiratoryRate || '--'}/min`;
       case 'note':
         return event.data?.text || 'Progress note added';
       case 'bill':
@@ -364,6 +383,7 @@ const PatientDetail = () => {
         data,
         createdAt: new Date().toISOString()
       })
+      sendPushNotification({ userId: id, userType: 'family', title, message, data })
     } catch (error) {
       console.error('Error creating family notification:', error)
     }
@@ -376,58 +396,67 @@ const PatientDetail = () => {
   }
 
   useEffect(() => {
-    const fetchPatient = async () => {
-      try {
-        const docRef = doc(db, 'patients', id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = { id: docSnap.id, ...docSnap.data() };
-          setPatient(data);
-          
-          const admitDate = new Date(data.admitDate);
-          const today = new Date();
-          const diffTime = Math.abs(today - admitDate);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          setLengthOfStay(diffDays);
-
-          if (data.clinical) {
-            setClinicalData(data.clinical);
-          }
-          if (data.billing) {
-            setBillingData(data.billing);
-            const items = data.billing.items || [];
-            const deposits = data.billing.deposits || [];
-            const total = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-            const depTotal = deposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
-            setTotalBill(total);
-            setTotalDeposits(depTotal);
-            setBalance(depTotal - total);
-          }
-          if (data.discharge) {
-            setDischargeData(data.discharge);
-          }
-          if (data.reports) {
-            setReports(data.reports);
-          }
-          if (data.prescriptions) {
-            setPrescriptions(data.prescriptions);
-          }
-          if (data.familyNotes) {
-            setFamilyNotes(data.familyNotes);
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching patient:', error);
-      } finally {
-        setLoading(false);
+    let cancelled = false
+    const checkChainAutomatically = async () => {
+      if (!(clinicalData.consentEvents || []).length) {
+        setAutoChainStatus(null)
+        return
       }
-    };
+      const result = await verifyConsentChain(clinicalData.consentEvents, clinicalData.consentChainHead)
+      if (!cancelled) setAutoChainStatus(result)
+    }
+    checkChainAutomatically()
+    return () => { cancelled = true }
+  }, [clinicalData.consentEvents, clinicalData.consentChainHead])
 
-    fetchPatient();
+  useEffect(() => {
+    const docRef = doc(db, 'patients', id);
+    const unsubscribePatient = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() };
+        setPatient(data);
+
+        const admitDate = new Date(data.admitDate);
+        const today = new Date();
+        const diffTime = Math.abs(today - admitDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        setLengthOfStay(diffDays);
+
+        if (data.clinical) {
+          setClinicalData(data.clinical);
+        }
+        if (data.billing) {
+          setBillingData(data.billing);
+          const items = data.billing.items || [];
+          const deposits = data.billing.deposits || [];
+          const total = items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+          const depTotal = deposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+          setTotalBill(total);
+          setTotalDeposits(depTotal);
+          setBalance(depTotal - total);
+        }
+        if (data.discharge) {
+          setDischargeData({ doctorNotes: '', instructions: '', followUpDate: '', ...data.discharge });
+        }
+        if (data.reports) {
+          setReports(data.reports);
+        }
+        if (data.prescriptions) {
+          setPrescriptions(data.prescriptions);
+        }
+        if (data.familyNotes) {
+          setFamilyNotes(data.familyNotes);
+        }
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching patient:', error);
+      setLoading(false);
+    });
 
     const timelineRef = collection(db, 'patients', id, 'timeline');
     const q = query(timelineRef);
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeTimeline = onSnapshot(q, (snapshot) => {
       const events = [];
       snapshot.forEach((doc) => {
         events.push({ id: doc.id, ...doc.data() });
@@ -440,7 +469,10 @@ const PatientDetail = () => {
       console.error('Timeline listener error:', error);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribePatient();
+      unsubscribeTimeline();
+    };
   }, [id]);
 
   useEffect(() => {
@@ -823,9 +855,53 @@ const PatientDetail = () => {
           bp: '',
           pulse: '',
           temperature: '',
+          temperatureUnit: 'C',
           oxygenSaturation: '',
           respiratoryRate: ''
         });
+
+        // Automatic notification trigger — fires the instant an abnormal reading is saved, instead
+        // of relying on the family happening to notice it next time they open the app. Reuses the
+        // exact same abnormality thresholds already shown on the vitals cards (getVitalStatus), and
+        // the exact same notification helpers already used for bills/reports/discharge.
+        const abnormalFlags = []
+        if (getVitalStatus('bp', newVital.bp).isAbnormal) abnormalFlags.push(`BP ${newVital.bp}`)
+        if (getVitalStatus('pulse', newVital.pulse).isAbnormal) abnormalFlags.push(`Pulse ${newVital.pulse} bpm`)
+        if (getVitalStatus('temperature', newVital.temperature, `°${newVital.temperatureUnit || 'C'}`).isAbnormal) {
+          abnormalFlags.push(`Temp ${newVital.temperature}°${newVital.temperatureUnit || 'C'}`)
+        }
+        if (getVitalStatus('oxygenSaturation', newVital.oxygenSaturation).isAbnormal) abnormalFlags.push(`SpO2 ${newVital.oxygenSaturation}%`)
+        if (getVitalStatus('respiratoryRate', newVital.respiratoryRate).isAbnormal) abnormalFlags.push(`RR ${newVital.respiratoryRate}/min`)
+
+        if (abnormalFlags.length > 0) {
+          const alertMessage = `${patient?.name || 'Patient'}: ${abnormalFlags.join(', ')}`
+          notifyFamily('⚠️ Abnormal Vitals Recorded', alertMessage, 'vitals', { patientId: id })
+          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/notify-staff`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: '⚠️ Abnormal Vitals Recorded',
+              message: alertMessage,
+              type: 'vitals',
+              data: { patientId: id }
+            })
+          }).catch(err => console.error('Error notifying staff of abnormal vitals:', err))
+          if (patient?.assignedDoctorId) {
+            addDoc(collection(db, 'notifications'), {
+              userId: patient.assignedDoctorId,
+              userType: 'doctor',
+              title: '⚠️ Abnormal Vitals Recorded',
+              message: alertMessage,
+              type: 'vitals',
+              read: false,
+              data: { patientId: id },
+              createdAt: new Date().toISOString()
+            }).then(() => {
+              sendPushNotification({ userId: patient.assignedDoctorId, userType: 'doctor', title: '⚠️ Abnormal Vitals Recorded', message: alertMessage, data: { patientId: id } })
+            }).catch(err => console.error('Error notifying doctor of abnormal vitals:', err))
+          }
+        }
+
         setTimeout(() => {
           setFormSuccess('');
           setShowAddVital(false);
@@ -849,39 +925,96 @@ const PatientDetail = () => {
     setFormSuccess('');
 
     try {
-      const newItem = {
-        ...billItemData,
-        amount: parseFloat(billItemData.amount),
-        addedAt: new Date().toISOString(),
-        addedBy: user?.email || 'Staff'
-      };
+      const isEditing = editingBillItemIndex !== null;
+      const existingItems = billingData.items || [];
+      const newItem = isEditing
+        ? {
+            ...existingItems[editingBillItemIndex],
+            ...billItemData,
+            amount: parseFloat(billItemData.amount),
+            editedAt: new Date().toISOString(),
+            editedBy: user?.email || 'Staff'
+          }
+        : {
+            ...billItemData,
+            amount: parseFloat(billItemData.amount),
+            status: 'unpaid',
+            addedAt: new Date().toISOString(),
+            addedBy: user?.email || 'Staff'
+          };
+
+      const updatedItems = isEditing
+        ? existingItems.map((item, idx) => (idx === editingBillItemIndex ? newItem : item))
+        : [...existingItems, newItem];
 
       const updatedBilling = {
         ...billingData,
-        items: [...(billingData.items || []), newItem]
+        items: updatedItems
       };
 
       const success1 = await updatePatientBilling(updatedBilling);
-      const success2 = await addTimelineEvent('bill', newItem);
+      const success2 = isEditing ? true : await addTimelineEvent('bill', newItem);
 
       if (success1 && success2) {
         setBillingData(updatedBilling);
         const newTotal = updatedBilling.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
         setTotalBill(newTotal);
         setBalance(totalDeposits - newTotal);
-        notifyFamily('New Bill Item Added', `${newItem.description} - ₹${newItem.amount}`, 'bill')
-        setFormSuccess('Bill item added successfully!');
+        if (!isEditing) notifyFamily('New Bill Item Added', `${newItem.description} - ₹${newItem.amount}`, 'bill')
+        setFormSuccess(isEditing ? 'Bill item updated successfully!' : 'Bill item added successfully!');
         setBillItemData({ description: '', amount: '', category: 'Diagnostic' });
+        setEditingBillItemIndex(null);
         setTimeout(() => {
           setFormSuccess('');
           setShowAddBillItem(false);
         }, 2000);
       } else {
-        setFormError('Failed to add bill item. Please try again.');
+        setFormError('Failed to save bill item. Please try again.');
       }
     } catch (error) {
-      setFormError('Failed to add bill item. Please try again.');
+      setFormError('Failed to save bill item. Please try again.');
     }
+  };
+
+  const handleStartEditBillItem = (index) => {
+    const item = (billingData.items || [])[index];
+    if (!item) return;
+    setBillItemData({ description: item.description || '', amount: String(item.amount ?? ''), category: item.category || 'Diagnostic' });
+    setEditingBillItemIndex(index);
+    setShowAddBillItem(true);
+  };
+
+  const handleDeleteBillItem = async (index) => {
+    if (!window.confirm('Remove this bill item? This cannot be undone.')) return;
+    const updatedItems = (billingData.items || []).filter((_, idx) => idx !== index);
+    const updatedBilling = { ...billingData, items: updatedItems };
+    const success = await updatePatientBilling(updatedBilling);
+    if (success) {
+      setBillingData(updatedBilling);
+      const newTotal = updatedItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+      setTotalBill(newTotal);
+      setBalance(totalDeposits - newTotal);
+    }
+  };
+
+  const handleToggleBillItemPaid = async (index) => {
+    const items = billingData.items || [];
+    const item = items[index];
+    if (!item) return;
+    const updatedItems = items.map((it, idx) =>
+      idx === index ? { ...it, status: getItemStatus(it) === 'paid' ? 'unpaid' : 'paid' } : it
+    );
+    const updatedBilling = { ...billingData, items: updatedItems };
+    const success = await updatePatientBilling(updatedBilling);
+    if (success) setBillingData(updatedBilling);
+  };
+
+  const handleDownloadInvoice = () => {
+    downloadInvoicePDF({ patient, billingData, totalBill, totalDeposits, balance });
+  };
+
+  const handlePrintInvoice = () => {
+    printInvoicePDF({ patient, billingData, totalBill, totalDeposits, balance });
   };
 
   const handleAddDeposit = async (e) => {
@@ -895,38 +1028,74 @@ const PatientDetail = () => {
     setFormSuccess('');
 
     try {
-      const newDeposit = {
-        ...depositData,
-        amount: parseFloat(depositData.amount),
-        depositedAt: new Date().toISOString(),
-        depositedBy: user?.email || 'Staff',
-        status: 'pending'
-      };
+      const isEditing = editingDepositIndex !== null;
+      const existingDeposits = billingData.deposits || [];
+      const newDeposit = isEditing
+        ? {
+            ...existingDeposits[editingDepositIndex],
+            ...depositData,
+            amount: parseFloat(depositData.amount),
+            editedAt: new Date().toISOString(),
+            editedBy: user?.email || 'Staff'
+          }
+        : {
+            ...depositData,
+            amount: parseFloat(depositData.amount),
+            depositedAt: new Date().toISOString(),
+            depositedBy: user?.email || 'Staff',
+            status: 'pending'
+          };
+
+      const updatedDeposits = isEditing
+        ? existingDeposits.map((d, idx) => (idx === editingDepositIndex ? newDeposit : d))
+        : [...existingDeposits, newDeposit];
 
       const updatedBilling = {
         ...billingData,
-        deposits: [...(billingData.deposits || []), newDeposit]
+        deposits: updatedDeposits
       };
 
       const success1 = await updatePatientBilling(updatedBilling);
-      const success2 = await addTimelineEvent('deposit', newDeposit);
+      const success2 = isEditing ? true : await addTimelineEvent('deposit', newDeposit);
 
       if (success1 && success2) {
         setBillingData(updatedBilling);
         const newDepTotal = updatedBilling.deposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
         setTotalDeposits(newDepTotal);
         setBalance(newDepTotal - totalBill);
-        setFormSuccess('Deposit request added successfully!');
+        setFormSuccess(isEditing ? 'Deposit updated successfully!' : 'Deposit request added successfully!');
         setDepositData({ amount: '', reason: '', urgency: 'routine' });
+        setEditingDepositIndex(null);
         setTimeout(() => {
           setFormSuccess('');
           setShowAddDeposit(false);
         }, 2000);
       } else {
-        setFormError('Failed to add deposit. Please try again.');
+        setFormError('Failed to save deposit. Please try again.');
       }
     } catch (error) {
-      setFormError('Failed to add deposit. Please try again.');
+      setFormError('Failed to save deposit. Please try again.');
+    }
+  };
+
+  const handleStartEditDeposit = (index) => {
+    const deposit = (billingData.deposits || [])[index];
+    if (!deposit) return;
+    setDepositData({ amount: String(deposit.amount ?? ''), reason: deposit.reason || '', urgency: deposit.urgency || 'routine' });
+    setEditingDepositIndex(index);
+    setShowAddDeposit(true);
+  };
+
+  const handleDeleteDeposit = async (index) => {
+    if (!window.confirm('Remove this deposit record? This cannot be undone.')) return;
+    const updatedDeposits = (billingData.deposits || []).filter((_, idx) => idx !== index);
+    const updatedBilling = { ...billingData, deposits: updatedDeposits };
+    const success = await updatePatientBilling(updatedBilling);
+    if (success) {
+      setBillingData(updatedBilling);
+      const newDepTotal = updatedDeposits.reduce((sum, d) => sum + (parseFloat(d.amount) || 0), 0);
+      setTotalDeposits(newDepTotal);
+      setBalance(newDepTotal - totalBill);
     }
   };
 
@@ -976,6 +1145,27 @@ const PatientDetail = () => {
     }
   };
 
+  const handleSaveDischargeNotes = async () => {
+    try {
+      const updatedDischarge = {
+        ...dischargeData,
+        doctorNotes: dischargeData.doctorNotes || '',
+        instructions: dischargeData.instructions || '',
+        followUpDate: dischargeData.followUpDate || ''
+      };
+      const success = await updatePatientDischarge(updatedDischarge);
+      if (success) {
+        setDischargeData(updatedDischarge);
+        setFormSuccess('Discharge notes saved!');
+        setTimeout(() => setFormSuccess(''), 2000);
+      } else {
+        setFormError('Failed to save discharge notes');
+      }
+    } catch (error) {
+      setFormError('Failed to save discharge notes');
+    }
+  };
+
   const handleDischargePatient = async () => {
     try {
       const allCompleted = Object.values(dischargeData.checklist).every(v => v === true);
@@ -997,7 +1187,10 @@ const PatientDetail = () => {
         balance: balance,
         medicines: clinicalData.medicines || [],
         vitals: clinicalData.vitals || [],
-        diagnosisList: clinicalData.diagnosis || []
+        diagnosisList: clinicalData.diagnosis || [],
+        doctorNotes: dischargeData.doctorNotes || '',
+        instructions: dischargeData.instructions || '',
+        followUpDate: dischargeData.followUpDate || ''
       };
 
       const updatedDischarge = {
@@ -1243,7 +1436,7 @@ const PatientDetail = () => {
     return (
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-2 border-forest-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-500">Loading patient data...</p>
         </div>
       </div>
@@ -1255,10 +1448,10 @@ const PatientDetail = () => {
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center p-4">
         <div className="bg-white/80 backdrop-blur-xl border border-gray-200/50 rounded-3xl p-8 max-w-md w-full text-center">
           <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Patient Not Found</h2>
+          <h2 className="text-2xl font-display font-semibold text-gray-900 mb-2">Patient Not Found</h2>
           <button
             onClick={handleBack}
-            className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all duration-300"
+            className="w-full py-3 bg-gradient-to-r from-forest-500 to-forest-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all duration-300"
           >
             Back to Dashboard
           </button>
@@ -1305,23 +1498,23 @@ const PatientDetail = () => {
             <div className="flex items-center gap-4">
               <button 
                 onClick={handleBack}
-                className="p-2 text-gray-500 hover:text-teal-600 hover:bg-teal-500/10 rounded-xl transition-all duration-200"
+                className="p-2 text-gray-500 hover:text-forest-700 hover:bg-forest-500/10 rounded-xl transition-all duration-200"
               >
                 <ArrowLeft size={20} />
               </button>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/20">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20">
                   <img src={Logo} alt="AarogyaSandesh" className="w-10 h-10 object-contain" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">AarogyaSandesh</h1>
-                  <p className="text-xs text-teal-600">Patient Details</p>
+                  <Wordmark size="xs" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
+                  <p className="text-xs text-forest-700">Patient Details</p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-6">
-              <button className="relative p-2 text-gray-500 hover:text-teal-600 transition-colors">
+              <button className="relative p-2 text-gray-500 hover:text-forest-700 transition-colors">
                 <Bell size={20} />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
@@ -1346,7 +1539,7 @@ const PatientDetail = () => {
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 mb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white">
+              <div className="w-16 h-16 bg-gradient-to-br from-forest-500 to-forest-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white">
                 {patient.name?.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -1359,15 +1552,15 @@ const PatientDetail = () => {
                   <span>Access: {patient.accessCode}</span>
                   <span className="w-px h-3 bg-gray-200"></span>
                   {dischargeData.discharged ? (
-                    <span className="text-emerald-400">● Discharged</span>
+                    <span className="text-forest-400">● Discharged</span>
                   ) : (
-                    <span className="text-emerald-400">● Active</span>
+                    <span className="text-forest-400">● Active</span>
                   )}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="px-4 py-2 bg-teal-500/10 text-teal-600 rounded-xl text-sm border border-teal-500/20">
+              <span className="px-4 py-2 bg-forest-500/10 text-forest-700 rounded-xl text-sm border border-forest-500/20">
                 📅 {new Date(patient.admitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
             </div>
@@ -1387,9 +1580,9 @@ const PatientDetail = () => {
             <p className="text-sm text-gray-500">Deposits</p>
             <p className="text-xl font-bold text-yellow-400">₹{totalDeposits.toLocaleString()}</p>
           </div>
-          <div className={`bg-white/80 backdrop-blur-sm border rounded-xl p-4 ${balance >= 0 ? 'border-emerald-500/20' : 'border-red-500/20'}`}>
+          <div className={`bg-white/80 backdrop-blur-sm border rounded-xl p-4 ${balance >= 0 ? 'border-forest-600/20' : 'border-red-500/20'}`}>
             <p className="text-sm text-gray-500">Balance</p>
-            <p className={`text-xl font-bold ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <p className={`text-xl font-bold ${balance >= 0 ? 'text-forest-400' : 'text-red-400'}`}>
               {balance >= 0 ? '₹' : '-₹'}{Math.abs(balance).toLocaleString()}
             </p>
           </div>
@@ -1402,7 +1595,7 @@ const PatientDetail = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-teal-500/10 text-teal-600 border border-teal-500/30'
+                  ? 'bg-forest-500/10 text-forest-700 border border-forest-500/30'
                   : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50/50'
               }`}
             >
@@ -1415,7 +1608,7 @@ const PatientDetail = () => {
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 min-h-[400px]">
           {activeTab === 'overview' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Patient Overview</h3>
+              <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">Patient Overview</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50/50 rounded-xl border border-gray-200/50">
                   <p className="text-sm text-gray-500">Patient ID</p>
@@ -1449,16 +1642,16 @@ const PatientDetail = () => {
                   <p className="text-sm text-gray-500">Diagnosis</p>
                   <p className="font-medium text-gray-900">{patient.problem}</p>
                 </div>
-                <div className="md:col-span-2 p-4 bg-teal-50/50 rounded-xl border border-teal-200/50">
+                <div className="md:col-span-2 p-4 bg-forest-50/50 rounded-xl border border-forest-200/50">
                   <p className="text-sm text-gray-500">Assigned Doctor</p>
                   <div className="flex flex-col md:flex-row md:items-center gap-3 mt-2">
                     <div className="flex-1">
                       {assignedDoctor ? (
-                        <div className="p-3 bg-white rounded-lg border border-teal-200">
+                        <div className="p-3 bg-white rounded-lg border border-forest-200">
                           <p className="font-medium text-gray-900">
                             {availableDoctors.find(d => d.id === assignedDoctor)?.name || 'Doctor assigned'}
                           </p>
-                          <p className="text-sm text-teal-600">
+                          <p className="text-sm text-forest-700">
                             {availableDoctors.find(d => d.id === assignedDoctor)?.specialization || ''}
                           </p>
                           {availableDoctors.find(d => d.id === assignedDoctor)?.department && (
@@ -1475,7 +1668,7 @@ const PatientDetail = () => {
                       <select
                         value={assignedDoctor || ''}
                         onChange={(e) => handleAssignDoctor(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500"
                       >
                         <option value="">Select a doctor</option>
                         {availableDoctors.map((doctor) => (
@@ -1522,12 +1715,12 @@ const PatientDetail = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Activity Timeline</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Activity Timeline</h3>
                   <p className="text-sm text-gray-500">{timeline.length} events recorded</p>
                 </div>
                 <button
                   onClick={() => setShowAddNote(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all duration-300 flex items-center gap-2 text-sm font-medium"
+                  className="px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all duration-300 flex items-center gap-2 text-sm font-medium"
                 >
                   <Plus size={16} />
                   Add Note
@@ -1606,7 +1799,7 @@ const PatientDetail = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Clinical Management</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Clinical Management</h3>
                   <p className="text-sm text-gray-500">Manage diagnosis, medicines, vitals, and consent</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -1619,7 +1812,7 @@ const PatientDetail = () => {
                   </button>
                   <button
                     onClick={() => setShowAddMedicine(true)}
-                    className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 bg-forest-600/10 text-forest-400 rounded-lg text-sm border border-forest-600/20 hover:bg-forest-600/20 transition-colors flex items-center gap-1"
                   >
                     <Pill size={14} />
                     Add Medicine
@@ -1671,7 +1864,7 @@ const PatientDetail = () => {
       {/* Medicines Card */}
 <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
   <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-    <Pill className="w-4 h-4 text-emerald-400" />
+    <Pill className="w-4 h-4 text-forest-400" />
     Medicines
   </h4>
   {(clinicalData.medicines || []).length === 0 ? (
@@ -1682,7 +1875,7 @@ const PatientDetail = () => {
         <div key={index} className="p-3 bg-white/50 rounded-lg border border-gray-200/50">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-gray-900">{m.name}</p>
-            <span className={`px-2 py-0.5 rounded-full text-xs ${m.status === 'active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
+            <span className={`px-2 py-0.5 rounded-full text-xs ${m.status === 'active' ? 'bg-forest-600/10 text-forest-400' : 'bg-gray-500/10 text-gray-400'}`}>
               {m.status || 'active'}
             </span>
           </div>
@@ -1710,35 +1903,35 @@ const PatientDetail = () => {
       {(clinicalData.vitals || []).slice().reverse().map((v, index) => (
         <div key={index} className="p-3 bg-white/50 rounded-lg border border-gray-200/50">
           <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className={`p-2 rounded-lg border ${getVitalStatus('bp', v.bp).isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${getVitalStatus('bp', v.bp).isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">BP</p>
               <p className={`font-medium ${getVitalStatus('bp', v.bp).color}`}>{v.bp || '--'}</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${getVitalStatus('bp', v.bp).bg} ${getVitalStatus('bp', v.bp).color}`}>
                 {getVitalStatus('bp', v.bp).label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${getVitalStatus('pulse', v.pulse).isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${getVitalStatus('pulse', v.pulse).isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">Pulse</p>
               <p className={`font-medium ${getVitalStatus('pulse', v.pulse).color}`}>{v.pulse || '--'} bpm</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${getVitalStatus('pulse', v.pulse).bg} ${getVitalStatus('pulse', v.pulse).color}`}>
                 {getVitalStatus('pulse', v.pulse).label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${getVitalStatus('temperature', v.temperature).isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${getVitalStatus('temperature', v.temperature, `°${v.temperatureUnit || 'C'}`).isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">Temp</p>
-              <p className={`font-medium ${getVitalStatus('temperature', v.temperature).color}`}>{v.temperature || '--'}°C</p>
-              <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${getVitalStatus('temperature', v.temperature).bg} ${getVitalStatus('temperature', v.temperature).color}`}>
-                {getVitalStatus('temperature', v.temperature).label}
+              <p className={`font-medium ${getVitalStatus('temperature', v.temperature, `°${v.temperatureUnit || 'C'}`).color}`}>{v.temperature || '--'}°{v.temperatureUnit || 'C'}</p>
+              <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${getVitalStatus('temperature', v.temperature, `°${v.temperatureUnit || 'C'}`).bg} ${getVitalStatus('temperature', v.temperature, `°${v.temperatureUnit || 'C'}`).color}`}>
+                {getVitalStatus('temperature', v.temperature, `°${v.temperatureUnit || 'C'}`).label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${getVitalStatus('oxygenSaturation', v.oxygenSaturation).isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${getVitalStatus('oxygenSaturation', v.oxygenSaturation).isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">SpO2</p>
               <p className={`font-medium ${getVitalStatus('oxygenSaturation', v.oxygenSaturation).color}`}>{v.oxygenSaturation || '--'}%</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${getVitalStatus('oxygenSaturation', v.oxygenSaturation).bg} ${getVitalStatus('oxygenSaturation', v.oxygenSaturation).color}`}>
                 {getVitalStatus('oxygenSaturation', v.oxygenSaturation).label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${getVitalStatus('respiratoryRate', v.respiratoryRate).isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${getVitalStatus('respiratoryRate', v.respiratoryRate).isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">RR</p>
               <p className={`font-medium ${getVitalStatus('respiratoryRate', v.respiratoryRate).color}`}>{v.respiratoryRate || '--'}/min</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${getVitalStatus('respiratoryRate', v.respiratoryRate).bg} ${getVitalStatus('respiratoryRate', v.respiratoryRate).color}`}>
@@ -1765,6 +1958,11 @@ const PatientDetail = () => {
                         </span>
                       )}
                     </h4>
+                    {autoChainStatus && !autoChainStatus.valid && (
+                      <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                        ⚠️ Something doesn't look right in this consent history. Please double-check these records.
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 mb-3">
                       <button
                         onClick={handleVerifyChain}
@@ -1773,7 +1971,7 @@ const PatientDetail = () => {
                         🔒 Verify Chain Integrity
                       </button>
                       {chainVerification && (
-                        <span className={`px-3 py-1 rounded-lg text-xs ${chainVerification.valid ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
+                        <span className={`px-3 py-1 rounded-lg text-xs ${chainVerification.valid ? 'bg-forest-600/10 text-forest-700' : 'bg-red-500/10 text-red-600'}`}>
                           {chainVerification.valid ? '✅ Chain verified — no tampering detected' : `⚠️ Chain broken at link ${chainVerification.brokenAt}`}
                         </span>
                       )}
@@ -1785,7 +1983,7 @@ const PatientDetail = () => {
                         {(clinicalData.consentEvents || []).slice().reverse().map((c, index) => (
                           <div key={index} className={`p-3 rounded-lg border ${
                             c.status === 'pending' ? 'bg-yellow-500/10 border-yellow-500/30' :
-                            c.status === 'approved' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                            c.status === 'approved' ? 'bg-forest-600/10 border-forest-600/30' :
                             c.status === 'rejected' ? 'bg-red-500/10 border-red-500/30' :
                             c.status === 'expired' ? 'bg-gray-700/30 border-gray-700/30' :
                             'bg-gray-700/30 border-gray-700/30'
@@ -1798,7 +1996,7 @@ const PatientDetail = () => {
                               <div className="flex items-center gap-2">
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${
                                   c.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                                  c.status === 'approved' ? 'bg-emerald-500/20 text-emerald-400' :
+                                  c.status === 'approved' ? 'bg-forest-600/20 text-forest-400' :
                                   c.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
                                   c.status === 'expired' ? 'bg-gray-500/20 text-gray-400' :
                                   'bg-gray-500/20 text-gray-400'
@@ -1812,7 +2010,7 @@ const PatientDetail = () => {
                                   </div>
                                 )}
                                 {c.status === 'approved' && c.familySignature && (
-                                  <div className="text-xs text-emerald-400">
+                                  <div className="text-xs text-forest-400">
                                     ✓ {c.familySignature}
                                   </div>
                                 )}
@@ -1822,7 +2020,7 @@ const PatientDetail = () => {
                               {new Date(c.requestedAt).toLocaleString()} • {c.staffName}
                             </p>
                             {c.status === 'approved' && (
-                              <p className="text-xs text-emerald-400 mt-1">✓ Approved at {new Date(c.respondedAt).toLocaleString()}</p>
+                              <p className="text-xs text-forest-400 mt-1">✓ Approved at {new Date(c.respondedAt).toLocaleString()}</p>
                             )}
                             {c.status === 'rejected' && (
                               <p className="text-xs text-red-400 mt-1">✗ Rejected at {new Date(c.respondedAt).toLocaleString()}</p>
@@ -1844,26 +2042,49 @@ const PatientDetail = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Billing Management</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Billing Management</h3>
                   <p className="text-sm text-gray-500">Manage cost items and deposits</p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
                   <button
-                    onClick={() => setShowAddBillItem(true)}
+                    onClick={() => {
+                      setEditingBillItemIndex(null);
+                      setBillItemData({ description: '', amount: '', category: 'Diagnostic' });
+                      setShowAddBillItem(true);
+                    }}
                     className="px-3 py-1.5 bg-rose-500/10 text-rose-400 rounded-lg text-sm border border-rose-500/20 hover:bg-rose-500/20 transition-colors flex items-center gap-1"
                   >
                     <Plus size={14} />
                     Add Bill Item
                   </button>
                   <button
-                    onClick={() => setShowAddDeposit(true)}
+                    onClick={() => {
+                      setEditingDepositIndex(null);
+                      setDepositData({ amount: '', reason: '', urgency: 'routine' });
+                      setShowAddDeposit(true);
+                    }}
                     className="px-3 py-1.5 bg-yellow-500/10 text-yellow-400 rounded-lg text-sm border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors flex items-center gap-1"
                   >
                     <FilePlus size={14} />
                     Add Deposit
                   </button>
+                  <button
+                    onClick={handleDownloadInvoice}
+                    className="px-3 py-1.5 bg-forest-50 text-forest-700 rounded-lg text-sm border border-forest-200 hover:bg-forest-100 transition-colors flex items-center gap-1"
+                  >
+                    <Receipt size={14} />
+                    Invoice
+                  </button>
                 </div>
               </div>
+
+              <BillingSummaryPanel
+                totalPaid={computePaymentTotals(billingData.items || []).paid}
+                totalUnpaid={computePaymentTotals(billingData.items || []).unpaid}
+                totalDeposits={totalDeposits}
+                balance={balance}
+                className="mb-6"
+              />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -1879,18 +2100,45 @@ const PatientDetail = () => {
                       <div className="space-y-2 max-h-[300px] overflow-y-auto">
                         {(billingData.items || []).map((item, index) => (
                           <div key={index} className="p-3 bg-white/50 rounded-lg border border-gray-200/50">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-medium text-gray-900">{item.description}</p>
-                              <p className="text-sm font-bold text-rose-400">₹{item.amount.toLocaleString()}</p>
+                              <p className="text-sm font-bold text-rose-400 whitespace-nowrap">₹{item.amount.toLocaleString()}</p>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1 flex-wrap">
                               <span className="px-2 py-0.5 bg-gray-200/50 rounded-full">{item.category || 'Other'}</span>
+                              <PaymentStatusBadge status={getItemStatus(item)} />
                               <span>by {item.addedBy || 'Staff'}</span>
                               <span>• {new Date(item.addedAt).toLocaleDateString()}</span>
+                              <div className="ml-auto flex items-center gap-1">
+                                <button
+                                  onClick={() => handleToggleBillItemPaid(index)}
+                                  title={getItemStatus(item) === 'paid' ? 'Mark unpaid' : 'Mark paid'}
+                                  className="p-1 text-gray-400 hover:text-forest-700 transition-colors"
+                                >
+                                  <CheckCircle size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleStartEditBillItem(index)}
+                                  title="Edit"
+                                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteBillItem(index)}
+                                  title="Delete"
+                                  className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
+                    )}
+                    {(billingData.items || []).length > 0 && (
+                      <CategoryBreakdown items={billingData.items} className="mt-4 pt-4 border-t border-gray-200/50" />
                     )}
                   </div>
                 </div>
@@ -1908,16 +2156,32 @@ const PatientDetail = () => {
                       <div className="space-y-2 max-h-[300px] overflow-y-auto">
                         {(billingData.deposits || []).map((deposit, index) => (
                           <div key={index} className="p-3 bg-white/50 rounded-lg border border-gray-200/50">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <p className="text-sm font-medium text-gray-900">{deposit.reason}</p>
-                              <p className="text-sm font-bold text-yellow-400">₹{deposit.amount.toLocaleString()}</p>
+                              <p className="text-sm font-bold text-yellow-400 whitespace-nowrap">₹{deposit.amount.toLocaleString()}</p>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1 flex-wrap">
                               <span className={`px-2 py-0.5 rounded-full ${deposit.urgency === 'emergency' ? 'bg-red-500/20 text-red-400' : deposit.urgency === 'urgent' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
                                 {deposit.urgency || 'routine'}
                               </span>
                               <span>by {deposit.depositedBy || 'Staff'}</span>
                               <span>• {new Date(deposit.depositedAt).toLocaleDateString()}</span>
+                              <div className="ml-auto flex items-center gap-1">
+                                <button
+                                  onClick={() => handleStartEditDeposit(index)}
+                                  title="Edit"
+                                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDeposit(index)}
+                                  title="Delete"
+                                  className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -1941,7 +2205,7 @@ const PatientDetail = () => {
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Claim Status</span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${billingData.insurance?.claimStatus === 'approved' ? 'bg-emerald-500/20 text-emerald-400' : billingData.insurance?.claimStatus === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${billingData.insurance?.claimStatus === 'approved' ? 'bg-forest-600/20 text-forest-400' : billingData.insurance?.claimStatus === 'rejected' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
                           {billingData.insurance?.claimStatus || 'pending'}
                         </span>
                       </div>
@@ -1964,7 +2228,7 @@ const PatientDetail = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Discharge Management</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Discharge Management</h3>
                   <p className="text-sm text-gray-500">
                     {dischargeData.discharged ? 'Patient discharged successfully' : `${checklistProgress}/${totalChecklistItems} checklist items completed`}
                   </p>
@@ -1976,7 +2240,7 @@ const PatientDetail = () => {
                       disabled={!allChecklistComplete}
                       className={`px-4 py-2 rounded-xl transition-all duration-300 flex items-center gap-2 text-sm font-medium ${
                         allChecklistComplete
-                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:shadow-lg hover:shadow-emerald-500/25'
+                          ? 'bg-gradient-to-r from-forest-600 to-forest-500 text-white hover:shadow-lg hover:shadow-forest-600/25'
                           : 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
                       }`}
                     >
@@ -1988,21 +2252,31 @@ const PatientDetail = () => {
               </div>
 
               {dischargeData.discharged ? (
-                <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-10 h-10 text-emerald-400" />
+                <div>
+                  <div className="text-center py-8">
+                    <div className="w-20 h-20 bg-forest-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle className="w-10 h-10 text-forest-400" />
+                    </div>
+                    <h3 className="text-xl font-display font-semibold text-gray-900 mb-2">Patient Discharged Successfully</h3>
+                    <p className="text-gray-500">
+                      Discharged on {new Date(dischargeData.actualTime).toLocaleString()}
+                    </p>
+                    <button
+                      onClick={() => setShowFinalBill(true)}
+                      className="mt-4 px-6 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
+                    >
+                      <FileText size={16} />
+                      View Final Bill
+                    </button>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Patient Discharged Successfully</h3>
-                  <p className="text-gray-500">
-                    Discharged on {new Date(dischargeData.actualTime).toLocaleString()}
-                  </p>
-                  <button
-                    onClick={() => setShowFinalBill(true)}
-                    className="mt-4 px-6 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all duration-300 flex items-center gap-2 mx-auto"
-                  >
-                    <FileText size={16} />
-                    View Final Bill
-                  </button>
+
+                  <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-5">
+                    <h4 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+                      <FileSignature className="w-4 h-4 text-forest-700" />
+                      Discharge Summary
+                    </h4>
+                    <DischargeSummaryView dischargeSummary={dischargeData.dischargeSummary} patient={patient} />
+                  </div>
                 </div>
               ) : (
                 <>
@@ -2010,7 +2284,7 @@ const PatientDetail = () => {
                     <div className="space-y-4">
                       <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
                         <h4 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
-                          <CheckSquare className="w-4 h-4 text-teal-600" />
+                          <CheckSquare className="w-4 h-4 text-forest-700" />
                           Discharge Checklist
                           <span className="ml-auto text-sm text-gray-500">{checklistProgress}/{totalChecklistItems}</span>
                         </h4>
@@ -2024,23 +2298,23 @@ const PatientDetail = () => {
                                 onClick={() => toggleChecklistItem(item.id)}
                                 className={`w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 ${
                                   isChecked
-                                    ? 'bg-emerald-500/10 border border-emerald-500/30'
+                                    ? 'bg-forest-600/10 border border-forest-600/30'
                                     : 'bg-gray-50/50 border border-gray-200/50 hover:border-gray-300'
                                 }`}
                               >
                                 <div className="flex items-center gap-3">
                                   {isChecked ? (
-                                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                                    <CheckCircle className="w-5 h-5 text-forest-400" />
                                   ) : (
                                     <Square className="w-5 h-5 text-gray-500" />
                                   )}
-                                  <Icon className={`w-4 h-4 ${isChecked ? 'text-emerald-400' : 'text-gray-500'}`} />
+                                  <Icon className={`w-4 h-4 ${isChecked ? 'text-forest-400' : 'text-gray-500'}`} />
                                   <span className={`text-sm ${isChecked ? 'text-gray-900' : 'text-gray-500'}`}>
                                     {item.label}
                                   </span>
                                 </div>
                                 {isChecked && (
-                                  <span className="text-xs text-emerald-400">✓ Done</span>
+                                  <span className="text-xs text-forest-400">✓ Done</span>
                                 )}
                               </button>
                             );
@@ -2048,7 +2322,7 @@ const PatientDetail = () => {
                         </div>
                         <div className="mt-4 w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
                           <div 
-                            className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-500"
+                            className="h-full bg-gradient-to-r from-forest-500 to-forest-600 rounded-full transition-all duration-500"
                             style={{ width: `${(checklistProgress / totalChecklistItems) * 100}%` }}
                           />
                         </div>
@@ -2072,7 +2346,7 @@ const PatientDetail = () => {
                                 setEstimatedTime('');
                                 document.getElementById('timePicker')?.focus();
                               }}
-                              className="mt-2 text-xs text-teal-600 hover:text-teal-700 transition-colors"
+                              className="mt-2 text-xs text-forest-700 hover:text-forest-800 transition-colors"
                             >
                               Update Time
                             </button>
@@ -2098,13 +2372,13 @@ const PatientDetail = () => {
                           <p className="text-red-400 text-sm mt-2">{formError}</p>
                         )}
                         {formSuccess && (
-                          <p className="text-emerald-400 text-sm mt-2">{formSuccess}</p>
+                          <p className="text-forest-400 text-sm mt-2">{formSuccess}</p>
                         )}
                       </div>
 
                       <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
                         <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                          <FileCheck className="w-4 h-4 text-teal-600" />
+                          <FileCheck className="w-4 h-4 text-forest-700" />
                           Discharge Summary
                         </h4>
                         <div className="space-y-2 text-sm">
@@ -2130,12 +2404,67 @@ const PatientDetail = () => {
                           </div>
                           <div className="flex justify-between border-t border-gray-200/50 pt-2">
                             <span className="text-gray-500">Balance</span>
-                            <span className={balance >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                            <span className={balance >= 0 ? 'text-forest-400' : 'text-red-400'}>
                               {balance >= 0 ? '₹' : '-₹'}{Math.abs(balance).toLocaleString()}
                             </span>
                           </div>
                         </div>
                       </div>
+
+                      <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
+                        <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-forest-700" />
+                          Vitals Trend This Stay
+                        </h4>
+                        <VitalsTrendSummary vitals={clinicalData.vitals || []} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <FileSignature className="w-4 h-4 text-forest-700" />
+                      Discharge Notes &amp; Instructions
+                      <span className="text-xs text-gray-400 font-normal ml-1">(optional, included in the discharge summary)</span>
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Doctor's Notes</label>
+                        <textarea
+                          value={dischargeData.doctorNotes || ''}
+                          onChange={(e) => setDischargeData({ ...dischargeData, doctorNotes: e.target.value })}
+                          placeholder="Clinical summary, condition at discharge, etc."
+                          rows={3}
+                          className="w-full px-3 py-2 bg-white/70 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Discharge Instructions</label>
+                        <textarea
+                          value={dischargeData.instructions || ''}
+                          onChange={(e) => setDischargeData({ ...dischargeData, instructions: e.target.value })}
+                          placeholder="Diet, activity level, warning signs to watch for, etc."
+                          rows={3}
+                          className="w-full px-3 py-2 bg-white/70 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-end gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Follow-up Appointment</label>
+                        <input
+                          type="date"
+                          value={dischargeData.followUpDate || ''}
+                          onChange={(e) => setDischargeData({ ...dischargeData, followUpDate: e.target.value })}
+                          className="px-3 py-2 bg-white/70 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
+                        />
+                      </div>
+                      <button
+                        onClick={handleSaveDischargeNotes}
+                        className="px-4 py-2 bg-forest-50 text-forest-700 rounded-lg text-sm border border-forest-200 hover:bg-forest-100 transition-colors"
+                      >
+                        Save Notes
+                      </button>
                     </div>
                   </div>
                 </>
@@ -2147,7 +2476,7 @@ const PatientDetail = () => {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Reports & Diagnostics</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900">Reports & Diagnostics</h3>
                   <p className="text-sm text-gray-500">{reports.length} reports uploaded</p>
                 </div>
                 <div className="flex gap-2">
@@ -2189,7 +2518,7 @@ const PatientDetail = () => {
                             key={report.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="bg-gray-50/50 rounded-xl border border-gray-200/50 overflow-hidden hover:border-teal-500/30 transition-all duration-300"
+                            className="bg-gray-50/50 rounded-xl border border-gray-200/50 overflow-hidden hover:border-forest-500/30 transition-all duration-300"
                           >
                             {report.fileType?.includes('image') ? (
                               <div className="relative h-48 bg-gray-100/50 overflow-hidden">
@@ -2224,7 +2553,7 @@ const PatientDetail = () => {
                                     href={report.downloadUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="p-1.5 text-gray-500 hover:text-teal-600 transition-colors"
+                                    className="p-1.5 text-gray-500 hover:text-forest-700 transition-colors"
                                     title="View Report"
                                   >
                                     <Eye size={16} />
@@ -2337,7 +2666,7 @@ const PatientDetail = () => {
   <div>
     <div className="flex items-center justify-between mb-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">Doctor Notes</h3>
+        <h3 className="text-lg font-display font-semibold text-gray-900">Doctor Notes</h3>
         <p className="text-sm text-gray-500">View all notes for this patient</p>
       </div>
     </div>
@@ -2363,7 +2692,7 @@ const PatientDetail = () => {
                 <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
                   note.sentBy === 'doctor' ? 'bg-violet-200 text-violet-700' : 'bg-amber-200 text-amber-700'
                 }`}>
-                  {note.sentBy === 'doctor' ? `Dr. ${note.doctorName || 'Doctor'}` : 'Family'}
+                  {note.sentBy === 'doctor' ? formatDoctorName(note.doctorName) : 'Family'}
                 </span>
                 <span className="text-xs text-gray-400">
                   {new Date(note.sentAt).toLocaleString()}
@@ -2402,8 +2731,8 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-teal-600" />
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-forest-700" />
                   Add Progress Note
                 </h3>
                 <button 
@@ -2425,7 +2754,7 @@ const PatientDetail = () => {
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     placeholder="Enter progress note..."
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300 min-h-[120px]"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300 min-h-[120px]"
                     rows="4"
                     required
                   />
@@ -2439,7 +2768,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2459,7 +2788,7 @@ const PatientDetail = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all"
                   >
                     Add Note
                   </button>
@@ -2492,7 +2821,7 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <Brain className="w-5 h-5 text-purple-400" />
                   Add Diagnosis
                 </h3>
@@ -2540,7 +2869,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2593,8 +2922,8 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Pill className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
+                  <Pill className="w-5 h-5 text-forest-400" />
                   Prescribe Medicine
                 </h3>
                 <button 
@@ -2617,7 +2946,7 @@ const PatientDetail = () => {
                     value={medicineData.name}
                     onChange={(e) => setMedicineData({ ...medicineData, name: e.target.value })}
                     placeholder="Enter medicine name"
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
                     required
                   />
                 </div>
@@ -2629,7 +2958,7 @@ const PatientDetail = () => {
                     value={medicineData.dosage}
                     onChange={(e) => setMedicineData({ ...medicineData, dosage: e.target.value })}
                     placeholder="e.g., 500mg"
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
                     required
                   />
                 </div>
@@ -2641,7 +2970,7 @@ const PatientDetail = () => {
                     value={medicineData.frequency}
                     onChange={(e) => setMedicineData({ ...medicineData, frequency: e.target.value })}
                     placeholder="e.g., Twice daily"
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
                     required
                   />
                 </div>
@@ -2651,7 +2980,7 @@ const PatientDetail = () => {
                   <select
                     value={medicineData.route}
                     onChange={(e) => setMedicineData({ ...medicineData, route: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-600 focus:border-transparent transition-all duration-300"
                   >
                     {routes.map((route) => (
                       <option key={route} value={route}>{route}</option>
@@ -2667,7 +2996,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2687,7 +3016,7 @@ const PatientDetail = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-600 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-600/25 transition-all"
                   >
                     Prescribe
                   </button>
@@ -2720,7 +3049,7 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <HeartPulse className="w-5 h-5 text-amber-400" />
                   Log Vitals
                 </h3>
@@ -2766,9 +3095,25 @@ const PatientDetail = () => {
                       type="text"
                       value={vitalData.temperature}
                       onChange={(e) => setVitalData({ ...vitalData, temperature: e.target.value })}
-                      placeholder="e.g., 98.6"
+                      placeholder={vitalData.temperatureUnit === 'F' ? 'e.g., 98.6' : 'e.g., 37'}
                       className="w-full px-4 py-3 bg-white/50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-300"
                     />
+                    <div className="flex w-fit rounded-xl border border-gray-200 overflow-hidden mt-2">
+                      <button
+                        type="button"
+                        onClick={() => setVitalData({ ...vitalData, temperatureUnit: 'C' })}
+                        className={`px-3 py-1 text-sm font-medium transition-colors ${vitalData.temperatureUnit === 'F' ? 'bg-white/50 text-gray-500' : 'bg-amber-500 text-white'}`}
+                      >
+                        °C
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVitalData({ ...vitalData, temperatureUnit: 'F' })}
+                        className={`px-3 py-1 text-sm font-medium transition-colors ${vitalData.temperatureUnit === 'F' ? 'bg-amber-500 text-white' : 'bg-white/50 text-gray-500'}`}
+                      >
+                        °F
+                      </button>
+                    </div>
                   </div>
                   <div className="mb-3">
                     <label className="block text-sm font-medium text-gray-700 mb-1">SpO2</label>
@@ -2800,7 +3145,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2841,6 +3186,7 @@ const PatientDetail = () => {
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setShowAddBillItem(false);
+                setEditingBillItemIndex(null);
                 setFormError('');
                 setFormSuccess('');
               }
@@ -2853,13 +3199,14 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-rose-400" />
-                  Add Bill Item
+                  {editingBillItemIndex !== null ? 'Edit Bill Item' : 'Add Bill Item'}
                 </h3>
-                <button 
+                <button
                   onClick={() => {
                     setShowAddBillItem(false);
+                    setEditingBillItemIndex(null);
                     setFormError('');
                     setFormSuccess('');
                   }}
@@ -2917,7 +3264,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2928,6 +3275,7 @@ const PatientDetail = () => {
                     type="button"
                     onClick={() => {
                       setShowAddBillItem(false);
+                      setEditingBillItemIndex(null);
                       setFormError('');
                       setFormSuccess('');
                     }}
@@ -2939,7 +3287,7 @@ const PatientDetail = () => {
                     type="submit"
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl hover:shadow-lg hover:shadow-rose-500/25 transition-all"
                   >
-                    Add Bill Item
+                    {editingBillItemIndex !== null ? 'Save Changes' : 'Add Bill Item'}
                   </button>
                 </div>
               </form>
@@ -2958,6 +3306,7 @@ const PatientDetail = () => {
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setShowAddDeposit(false);
+                setEditingDepositIndex(null);
                 setFormError('');
                 setFormSuccess('');
               }
@@ -2970,13 +3319,14 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <FilePlus className="w-5 h-5 text-yellow-400" />
-                  Add Deposit Request
+                  {editingDepositIndex !== null ? 'Edit Deposit' : 'Add Deposit Request'}
                 </h3>
-                <button 
+                <button
                   onClick={() => {
                     setShowAddDeposit(false);
+                    setEditingDepositIndex(null);
                     setFormError('');
                     setFormSuccess('');
                   }}
@@ -3034,7 +3384,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3045,6 +3395,7 @@ const PatientDetail = () => {
                     type="button"
                     onClick={() => {
                       setShowAddDeposit(false);
+                      setEditingDepositIndex(null);
                       setFormError('');
                       setFormSuccess('');
                     }}
@@ -3056,7 +3407,7 @@ const PatientDetail = () => {
                     type="submit"
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl hover:shadow-lg hover:shadow-yellow-500/25 transition-all"
                   >
-                    Add Deposit
+                    {editingDepositIndex !== null ? 'Save Changes' : 'Add Deposit'}
                   </button>
                 </div>
               </form>
@@ -3087,7 +3438,7 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-violet-400" />
                   Request Consent
                 </h3>
@@ -3157,7 +3508,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3212,7 +3563,7 @@ const PatientDetail = () => {
                 <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <AlertTriangle className="w-8 h-8 text-amber-400" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Discharge</h3>
+                <h3 className="text-xl font-display font-semibold text-gray-900 mb-2">Confirm Discharge</h3>
                 <p className="text-gray-500 mb-6">
                   Are you sure you want to discharge {patient.name}?<br />
                   All checklist items are completed. This action cannot be undone.
@@ -3232,7 +3583,7 @@ const PatientDetail = () => {
                   </button>
                   <button
                     onClick={handleDischargePatient}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-600 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-600/25 transition-all"
                   >
                     Confirm Discharge
                   </button>
@@ -3263,15 +3614,15 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Final Bill</h3>
+                <h3 className="text-2xl font-display font-semibold text-gray-900">Final Bill</h3>
                 <div className="flex gap-2">
-                  <button className="p-2 text-gray-500 hover:text-teal-600 transition-colors">
+                  <button onClick={handleDownloadInvoice} title="Download PDF" className="p-2 text-gray-500 hover:text-forest-700 transition-colors">
                     <Download size={20} />
                   </button>
-                  <button className="p-2 text-gray-500 hover:text-teal-600 transition-colors">
+                  <button onClick={handlePrintInvoice} title="Print" className="p-2 text-gray-500 hover:text-forest-700 transition-colors">
                     <Printer size={20} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => setShowFinalBill(false)}
                     className="p-2 text-gray-500 hover:text-gray-900 transition-colors"
                   >
@@ -3282,9 +3633,14 @@ const PatientDetail = () => {
 
               <div className="space-y-6">
                 <div className="border-b border-gray-200/50 pb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <img src={Logo} alt="AarogyaSandesh" className="w-8 h-8 object-contain" />
-                    <span className="text-lg font-bold text-gray-900">AarogyaSandesh</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <img src={Logo} alt="AarogyaSandesh" className="w-8 h-8 object-contain" />
+                      <Wordmark size="sm" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
+                    </div>
+                    <span className="text-xs font-mono text-forest-700 bg-forest-50 border border-forest-200 rounded px-2 py-1">
+                      {getInvoiceNumber(billingData, patient?.patientId)}
+                    </span>
                   </div>
                   <p className="text-xs text-gray-500">A Health Update, Delivered</p>
                 </div>
@@ -3320,15 +3676,21 @@ const PatientDetail = () => {
                   <h4 className="font-semibold text-gray-900 mb-3">Bill Details</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {(billingData.items || []).map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span className="text-gray-500">{item.description} <span className="text-xs text-gray-400">({item.category})</span></span>
-                        <span className="text-gray-900">₹{item.amount.toLocaleString()}</span>
+                      <div key={index} className="flex items-center justify-between text-sm gap-2">
+                        <span className="text-gray-500 flex items-center gap-1.5">
+                          {item.description} <span className="text-xs text-gray-400">({item.category})</span>
+                          <PaymentStatusBadge status={getItemStatus(item)} />
+                        </span>
+                        <span className="text-gray-900 whitespace-nowrap">₹{item.amount.toLocaleString()}</span>
                       </div>
                     ))}
                     {billingData.items?.length === 0 && (
                       <p className="text-gray-500 text-sm">No bill items</p>
                     )}
                   </div>
+                  {(billingData.items || []).length > 0 && (
+                    <CategoryBreakdown items={billingData.items} className="mt-4 pt-4 border-t border-gray-200/50" />
+                  )}
                 </div>
 
                 <div className="border-t border-gray-200/50 pt-4 space-y-2">
@@ -3342,12 +3704,12 @@ const PatientDetail = () => {
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t border-gray-200/50 pt-2">
                     <span className="text-gray-900">Balance</span>
-                    <span className={balance >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                    <span className={balance >= 0 ? 'text-forest-400' : 'text-red-400'}>
                       {balance >= 0 ? '₹' : '-₹'}{Math.abs(balance).toLocaleString()}
                     </span>
                   </div>
                   {balance > 0 && (
-                    <p className="text-xs text-emerald-400">Amount to be refunded</p>
+                    <p className="text-xs text-forest-400">Amount to be refunded</p>
                   )}
                   {balance < 0 && (
                     <p className="text-xs text-red-400">Amount due from family</p>
@@ -3371,7 +3733,7 @@ const PatientDetail = () => {
                       setShowFinalBill(false);
                       navigate('/staff');
                     }}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/25 transition-all flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-500 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/25 transition-all flex items-center justify-center gap-2"
                   >
                     <Home size={16} />
                     Return to Dashboard
@@ -3408,7 +3770,7 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <Upload className="w-5 h-5 text-amber-400" />
                   Upload Report
                 </h3>
@@ -3455,7 +3817,7 @@ const PatientDetail = () => {
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Select File *</label>
-                  <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${reportFile ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <div className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-300 ${reportFile ? 'border-forest-600/50 bg-forest-600/5' : 'border-gray-200 hover:border-gray-300'}`}>
                     <input
                       type="file"
                       accept=".jpg,.jpeg,.png,.gif,.pdf"
@@ -3500,7 +3862,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -3572,7 +3934,7 @@ const PatientDetail = () => {
               className="bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <FileSignature className="w-5 h-5 text-pink-400" />
                   Upload Prescription
                 </h3>
@@ -3678,7 +4040,7 @@ const PatientDetail = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-400 text-sm mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-400 text-sm mb-4 p-3 bg-forest-600/10 border border-forest-600/20 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>

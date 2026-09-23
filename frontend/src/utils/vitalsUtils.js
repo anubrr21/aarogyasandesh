@@ -18,7 +18,7 @@ export const VITALS_NORMAL_RANGES = {
     max: 37.2,
     displayName: 'Temperature',
     unit: '°C',
-    format: (value) => value ? `${value}°C` : '--'
+    format: (value, unit = '°C') => value ? `${value}${unit}` : '--'
   },
   oxygenSaturation: {
     min: 95,
@@ -36,14 +36,16 @@ export const VITALS_NORMAL_RANGES = {
   }
 };
 
-export const getVitalStatus = (key, value) => {
+export const getVitalStatus = (key, value, unit) => {
   if (!value) return { status: 'unknown', color: 'text-gray-400', bg: 'bg-gray-100', label: 'Not recorded' };
-  
+
   const range = VITALS_NORMAL_RANGES[key];
   if (!range) return { status: 'unknown', color: 'text-gray-400', bg: 'bg-gray-100', label: 'Unknown' };
 
   const numValue = parseFloat(value);
   if (isNaN(numValue)) return { status: 'unknown', color: 'text-gray-400', bg: 'bg-gray-100', label: 'Invalid' };
+
+  const compareValue = key === 'temperature' && unit === '°F' ? (numValue - 32) * 5 / 9 : numValue;
 
   if (key === 'bp') {
     const parts = value.split('/');
@@ -54,7 +56,7 @@ export const getVitalStatus = (key, value) => {
         const sysNormal = systolic >= range.systolic.min && systolic <= range.systolic.max;
         const diaNormal = diastolic >= range.diastolic.min && diastolic <= range.diastolic.max;
         if (sysNormal && diaNormal) {
-          return { status: 'normal', color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Normal', isAbnormal: false };
+          return { status: 'normal', color: 'text-forest-700', bg: 'bg-forest-50', label: 'Normal', isAbnormal: false };
         }
         if (systolic > range.systolic.max || diastolic > range.diastolic.max) {
           return { status: 'high', color: 'text-red-600', bg: 'bg-red-50', label: 'High', isAbnormal: true };
@@ -67,13 +69,13 @@ export const getVitalStatus = (key, value) => {
     return { status: 'unknown', color: 'text-gray-400', bg: 'bg-gray-100', label: 'Invalid format' };
   }
 
-  if (numValue < range.min) {
+  if (compareValue < range.min) {
     return { status: 'low', color: 'text-red-600', bg: 'bg-red-50', label: `Low (Normal: ${range.min}-${range.max} ${range.unit})`, isAbnormal: true };
   }
-  if (numValue > range.max) {
+  if (compareValue > range.max) {
     return { status: 'high', color: 'text-red-600', bg: 'bg-red-50', label: `High (Normal: ${range.min}-${range.max} ${range.unit})`, isAbnormal: true };
   }
-  return { status: 'normal', color: 'text-emerald-600', bg: 'bg-emerald-50', label: `Normal (${range.min}-${range.max} ${range.unit})`, isAbnormal: false };
+  return { status: 'normal', color: 'text-forest-700', bg: 'bg-forest-50', label: `Normal (${range.min}-${range.max} ${range.unit})`, isAbnormal: false };
 };
 
 export const getVitalIcon = (key) => {

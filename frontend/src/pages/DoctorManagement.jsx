@@ -188,7 +188,7 @@ const DoctorManagement = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
@@ -197,18 +197,18 @@ const DoctorManagement = () => {
     <div className="max-w-7xl mx-auto py-8 px-4">
       <button
         onClick={() => navigate('/staff')}
-        className="flex items-center gap-2 text-gray-500 hover:text-teal-600 transition-colors mb-6"
+        className="flex items-center gap-2 text-gray-500 hover:text-forest-700 transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Dashboard
       </button>
       <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-teal-50 rounded-xl border border-teal-200/50">
-            <Stethoscope className="w-5 h-5 text-teal-600" />
+          <div className="p-2 bg-forest-50 rounded-xl border border-forest-200/50">
+            <Stethoscope className="w-5 h-5 text-forest-700" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Doctor Management</h1>
+            <h1 className="text-2xl font-display font-semibold text-gray-900">Doctor Management</h1>
             <p className="text-sm text-gray-500">
               {availableDoctors.length} doctors currently available
             </p>
@@ -216,7 +216,7 @@ const DoctorManagement = () => {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 flex items-center gap-2"
+          className="px-6 py-2.5 bg-gradient-to-r from-forest-500 to-forest-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Add Doctor
@@ -230,7 +230,7 @@ const DoctorManagement = () => {
           placeholder="Search doctors by name, specialization, or department..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-12 pr-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+          className="w-full pl-12 pr-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
         />
       </div>
 
@@ -251,19 +251,19 @@ const DoctorManagement = () => {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center text-xl font-bold text-white">
+                  <div className="w-12 h-12 bg-gradient-to-br from-forest-500 to-forest-500 rounded-xl flex items-center justify-center text-xl font-bold text-white">
                     {doctor.name?.charAt(0).toUpperCase()}
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{doctor.name}</h3>
-                    <p className="text-sm text-teal-600">{doctor.specialization}</p>
+                    <p className="text-sm text-forest-700">{doctor.specialization}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => handleToggleAvailability(doctor)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                     doctor.availability === 'available'
-                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                      ? 'bg-forest-50 text-forest-700 border border-forest-200'
                       : 'bg-red-50 text-red-600 border border-red-200'
                   }`}
                 >
@@ -325,7 +325,7 @@ const DoctorManagement = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Add Doctor</h2>
+              <h2 className="text-xl font-display font-semibold text-gray-900">Add Doctor</h2>
               <button
                 onClick={() => {
                   setShowAddModal(false)
@@ -347,7 +347,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                     required
                   />
                 </div>
@@ -357,7 +357,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.specialization}
                     onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                     required
                   />
                 </div>
@@ -367,7 +367,7 @@ const DoctorManagement = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                     required
                   />
                 </div>
@@ -377,7 +377,7 @@ const DoctorManagement = () => {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -386,7 +386,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -396,7 +396,7 @@ const DoctorManagement = () => {
                     value={formData.visitingHours}
                     onChange={(e) => setFormData({ ...formData, visitingHours: e.target.value })}
                     placeholder="e.g., 9:00 AM - 5:00 PM"
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -405,7 +405,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.consultationFee}
                     onChange={(e) => setFormData({ ...formData, consultationFee: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -415,7 +415,7 @@ const DoctorManagement = () => {
                     value={formData.experience}
                     onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
                     placeholder="e.g., 10 years"
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -425,7 +425,7 @@ const DoctorManagement = () => {
                     value={formData.education}
                     onChange={(e) => setFormData({ ...formData, education: e.target.value })}
                     placeholder="e.g., MBBS, MD"
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
               </div>
@@ -438,7 +438,7 @@ const DoctorManagement = () => {
               )}
 
               {formSuccess && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-sm mt-4">
+                <div className="flex items-center gap-2 p-3 bg-forest-50 border border-forest-200 rounded-xl text-forest-700 text-sm mt-4">
                   <CheckCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{formSuccess}</span>
                 </div>
@@ -460,7 +460,7 @@ const DoctorManagement = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-2.5 bg-gradient-to-r from-forest-500 to-forest-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {saving ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -481,7 +481,7 @@ const DoctorManagement = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Edit Doctor</h2>
+              <h2 className="text-xl font-display font-semibold text-gray-900">Edit Doctor</h2>
               <button
                 onClick={() => {
                   setEditingDoctor(null)
@@ -503,7 +503,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                     required
                   />
                 </div>
@@ -513,7 +513,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.specialization}
                     onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                     required
                   />
                 </div>
@@ -523,7 +523,7 @@ const DoctorManagement = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                     required
                   />
                 </div>
@@ -533,7 +533,7 @@ const DoctorManagement = () => {
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -542,7 +542,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -551,7 +551,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.visitingHours}
                     onChange={(e) => setFormData({ ...formData, visitingHours: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -560,7 +560,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.consultationFee}
                     onChange={(e) => setFormData({ ...formData, consultationFee: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div>
@@ -569,7 +569,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.experience}
                     onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -578,7 +578,7 @@ const DoctorManagement = () => {
                     type="text"
                     value={formData.education}
                     onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full px-4 py-2.5 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 transition-all"
                   />
                 </div>
               </div>
@@ -591,7 +591,7 @@ const DoctorManagement = () => {
               )}
 
               {formSuccess && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-sm mt-4">
+                <div className="flex items-center gap-2 p-3 bg-forest-50 border border-forest-200 rounded-xl text-forest-700 text-sm mt-4">
                   <CheckCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{formSuccess}</span>
                 </div>
@@ -613,7 +613,7 @@ const DoctorManagement = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-2.5 bg-gradient-to-r from-forest-500 to-forest-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {saving ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>

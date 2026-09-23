@@ -22,15 +22,15 @@ const InsuranceCard = ({ policy, onDelete, onSelectPolicy, onClaim }) => {
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-teal-50 rounded-xl border border-teal-200/50">
-            <Shield className="w-4 h-4 text-teal-600" />
+          <div className="p-2 bg-forest-50 rounded-xl border border-forest-200/50">
+            <Shield className="w-4 h-4 text-forest-700" />
           </div>
           <div>
             <h4 className="font-semibold text-gray-900">{policy.provider || 'Insurance Provider'}</h4>
             <p className="text-xs text-gray-400">Policy: {maskPolicyNumber(policy.policyNumber)}</p>
           </div>
         </div>
-        <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${isActive ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+        <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${isActive ? 'bg-forest-50 text-forest-700 border-forest-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
           {isActive ? '● Active' : 'Expired'}
         </span>
       </div>
@@ -42,7 +42,7 @@ const InsuranceCard = ({ policy, onDelete, onSelectPolicy, onClaim }) => {
         </div>
         <div>
           <p className="text-xs text-gray-400">Sum Insured</p>
-          <p className="text-sm font-medium text-teal-600">₹{policy.sumInsured?.toLocaleString() || 'N/A'}</p>
+          <p className="text-sm font-medium text-forest-700">₹{policy.sumInsured?.toLocaleString() || 'N/A'}</p>
         </div>
         <div>
           <p className="text-xs text-gray-400">Start Date</p>
@@ -70,7 +70,7 @@ const InsuranceCard = ({ policy, onDelete, onSelectPolicy, onClaim }) => {
         </button>
         <button
           onClick={() => onClaim && onClaim()}
-          className="flex-1 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 flex items-center justify-center gap-1 text-sm"
+          className="flex-1 py-2 bg-gradient-to-r from-forest-500 to-forest-600 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 flex items-center justify-center gap-1 text-sm"
         >
           <TrendingUp className="w-4 h-4" />
           Claim

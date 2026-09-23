@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -7,12 +7,25 @@ import { db, storage, ref, uploadBytes, getDownloadURL, deleteObject } from '../
 import { doc, onSnapshot, collection, query, where, updateDoc, getDoc, addDoc, getDocs } from 'firebase/firestore';
 import BillAnomalyDetector from '../components/family/BillAnomalyDetector'
 import NotificationBell from '../components/common/NotificationBell'
+import Wordmark from '../components/common/Wordmark'
 import InsuranceDashboard from '../components/insurance/InsuranceDashboard'
 import ChatbotButton from '../components/family/ChatbotButton'
 import LanguageToggle from '../components/common/LanguageToggle'
 import VisitingPass from '../components/family/VisitingPass'
+import DiagnosisContextPanel from '../components/family/DiagnosisContextPanel'
+import IndiaOpenDataPanel from '../components/family/IndiaOpenDataPanel'
 import { computeChainLink,appendToImmutableLog,verifyConsentChain } from '../utils/consentChain'
+import { sendPushNotification } from '../utils/pushNotifications'
 import { getVitalStatus, getVitalIcon, VITALS_NORMAL_RANGES } from '../utils/vitalsUtils';
+import { formatDoctorName } from '../utils/formatDoctorName';
+import PaymentStatusBadge from '../components/billing/PaymentStatusBadge';
+import CategoryBreakdown from '../components/billing/CategoryBreakdown';
+import BillingSummaryPanel from '../components/billing/BillingSummaryPanel';
+import BillAnalysisPanel from '../components/billing/BillAnalysisPanel';
+import { getItemStatus, computePaymentTotals } from '../utils/billingHelpers';
+import { downloadInvoicePDF } from '../utils/generateInvoicePDF';
+import VitalsTrendSummary from '../components/discharge/VitalsTrendSummary';
+import DischargeSummaryView from '../components/discharge/DischargeSummaryView';
 import { 
   LogOut, 
   User, 
@@ -44,7 +57,9 @@ import {
   Trash2,
   Timer,
   Plus,
-  Clock as ClockIcon
+  Clock as ClockIcon,
+  BookOpen,
+  Landmark
 } from 'lucide-react';
 
 const FamilyPortal = () => {
@@ -111,6 +126,9 @@ const FamilyPortal = () => {
   const [showVisitingPass, setShowVisitingPass] = useState(false)
   const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
   const [chainVerification, setChainVerification] = useState(null)
+  const [autoChainStatus, setAutoChainStatus] = useState(null)
+  const [showConsentInfo, setShowConsentInfo] = useState(false)
+  const [showDischargeSummaryModal, setShowDischargeSummaryModal] = useState(false)
 
   const prescriptionTypes = ['medicine', 'therapy', 'exercise', 'diet', 'other'];
   const navigate = useNavigate();
@@ -125,6 +143,8 @@ const FamilyPortal = () => {
   { id: 'insurance', label: t('family.portal.tabs.insurance'), icon: Shield },
   { id: 'discharge', label: t('family.portal.tabs.discharge'), icon: CheckCircle },
   { id: 'reports', label: t('family.portal.tabs.reports'), icon: FileText },
+  { id: 'diagnosisInfo', label: t('family.portal.tabs.diagnosisInfo'), icon: BookOpen },
+  { id: 'indiaOpenData', label: 'India Open Data', icon: Landmark },
 ];
 
   useEffect(() => {
@@ -291,7 +311,7 @@ const FamilyPortal = () => {
     const statuses = {
       bp: getVitalStatus('bp', latestVitals.bp),
       pulse: getVitalStatus('pulse', latestVitals.pulse),
-      temperature: getVitalStatus('temperature', latestVitals.temperature),
+      temperature: getVitalStatus('temperature', latestVitals.temperature, `°${latestVitals.temperatureUnit || 'C'}`),
       oxygenSaturation: getVitalStatus('oxygenSaturation', latestVitals.oxygenSaturation),
       respiratoryRate: getVitalStatus('respiratoryRate', latestVitals.respiratoryRate)
     };
@@ -351,8 +371,8 @@ const FamilyPortal = () => {
       },
       'medicine': { 
         icon: Pill, 
-        color: 'text-emerald-500', 
-        bg: 'bg-emerald-50',
+        color: 'text-forest-600', 
+        bg: 'bg-forest-50',
         label: 'Medicine'
       },
       'vital': { 
@@ -363,8 +383,8 @@ const FamilyPortal = () => {
       },
       'note': { 
         icon: MessageSquare, 
-        color: 'text-cyan-500', 
-        bg: 'bg-cyan-50',
+        color: 'text-forest-500', 
+        bg: 'bg-forest-50',
         label: 'Note'
       },
       'bill': { 
@@ -381,8 +401,8 @@ const FamilyPortal = () => {
       },
       'discharge': { 
         icon: CheckCircle, 
-        color: 'text-emerald-500', 
-        bg: 'bg-emerald-50',
+        color: 'text-forest-600', 
+        bg: 'bg-forest-50',
         label: 'Discharge'
       },
       'report': { 
@@ -427,7 +447,7 @@ const FamilyPortal = () => {
       case 'medicine':
         return `${event.data?.name || 'Medicine'} ${event.data?.dosage || ''} - ${event.data?.frequency || ''} (${event.data?.route || 'Oral'})`;
       case 'vital':
-        return `BP: ${event.data?.bp || '--'} | Pulse: ${event.data?.pulse || '--'} | Temp: ${event.data?.temperature || '--'}°C | SpO2: ${event.data?.oxygenSaturation || '--'}% | RR: ${event.data?.respiratoryRate || '--'}/min`;
+        return `BP: ${event.data?.bp || '--'} | Pulse: ${event.data?.pulse || '--'} | Temp: ${event.data?.temperature || '--'}°${event.data?.temperatureUnit || 'C'} | SpO2: ${event.data?.oxygenSaturation || '--'}% | RR: ${event.data?.respiratoryRate || '--'}/min`;
       case 'note':
         return event.data?.text || 'Progress note added';
       case 'bill':
@@ -486,19 +506,19 @@ const FamilyPortal = () => {
 
       setFamilyNotes(updatedNotes);
       try {
-        const staffSnapshot = await getDocs(collection(db, 'staff'));
-        await Promise.all(staffSnapshot.docs.map(staffDoc =>
-          addDoc(collection(db, 'notifications'), {
-            userId: staffDoc.id,
-            userType: 'staff',
+        const notifyRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/notify-staff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             title: 'New Family Note',
             message: `${patientData.name}'s family: "${familyNoteText.trim().slice(0, 80)}"`,
             type: 'note',
-            read: false,
-            data: { patientId },
-            createdAt: new Date().toISOString()
+            data: { patientId }
           })
-        ))
+        });
+        if (!notifyRes.ok) {
+          throw new Error('Failed to notify staff');
+        }
       } catch (notifyError) {
         console.error('Error notifying staff:', notifyError)
       }
@@ -516,6 +536,7 @@ const FamilyPortal = () => {
             data: { patientId },
             createdAt: new Date().toISOString()
           });
+          sendPushNotification({ userId: data.assignedDoctorId, userType: 'doctor', title: 'New Family Note', message: `${data.name || 'Patient'}'s family: "${familyNoteText.trim().slice(0, 80)}"`, data: { patientId } })
         }
       } catch (doctorError) {
         console.error('Error notifying doctor:', doctorError);
@@ -615,6 +636,20 @@ const FamilyPortal = () => {
   setTimeout(() => setChainVerification(null), 5000)
 }
 
+  useEffect(() => {
+    let cancelled = false
+    const checkChainAutomatically = async () => {
+      if (!(clinicalData.consentEvents || []).length) {
+        setAutoChainStatus(null)
+        return
+      }
+      const result = await verifyConsentChain(clinicalData.consentEvents, clinicalData.consentChainHead)
+      if (!cancelled) setAutoChainStatus(result)
+    }
+    checkChainAutomatically()
+    return () => { cancelled = true }
+  }, [clinicalData.consentEvents, clinicalData.consentChainHead])
+
   const handleVerifyConsentOTP = async (consentId) => {
     const otpValue = consentOTP.join('');
     if (otpValue.length !== 6) {
@@ -695,6 +730,41 @@ const FamilyPortal = () => {
         consentEvents: updatedEvents
       }));
 
+      // Automatic notification trigger — staff/doctor currently only find out a family approved a
+      // consent request by checking manually. Same notify-staff + assigned-doctor pattern already
+      // used for the "family sent a note" flow just above.
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/notify-staff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: '✅ Consent Approved',
+            message: `${patientData?.name || 'Family'} approved the "${consentEvent.type}" consent request`,
+            type: 'consent',
+            data: { patientId }
+          })
+        })
+      } catch (notifyError) {
+        console.error('Error notifying staff of consent approval:', notifyError)
+      }
+      if (data.assignedDoctorId) {
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            userId: data.assignedDoctorId,
+            userType: 'doctor',
+            title: '✅ Consent Approved',
+            message: `${patientData?.name || 'Family'} approved the "${consentEvent.type}" consent request`,
+            type: 'consent',
+            read: false,
+            data: { patientId },
+            createdAt: new Date().toISOString()
+          })
+          sendPushNotification({ userId: data.assignedDoctorId, userType: 'doctor', title: '✅ Consent Approved', message: `${patientData?.name || 'Family'} approved the "${consentEvent.type}" consent request`, data: { patientId } })
+        } catch (doctorError) {
+          console.error('Error notifying doctor of consent approval:', doctorError)
+        }
+      }
+
       setFormSuccess('Consent approved successfully!');
       setShowConsentOTP(false);
       setConsentOTP(['', '', '', '', '', '']);
@@ -760,6 +830,39 @@ const FamilyPortal = () => {
         consentEvents: updatedEvents
       }));
 
+      // Automatic notification trigger — same reasoning and pattern as the approve path above.
+      try {
+        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/notify-staff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: '❌ Consent Rejected',
+            message: `${patientData?.name || 'Family'} rejected the "${consentEvent.type}" consent request`,
+            type: 'consent',
+            data: { patientId }
+          })
+        })
+      } catch (notifyError) {
+        console.error('Error notifying staff of consent rejection:', notifyError)
+      }
+      if (data.assignedDoctorId) {
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            userId: data.assignedDoctorId,
+            userType: 'doctor',
+            title: '❌ Consent Rejected',
+            message: `${patientData?.name || 'Family'} rejected the "${consentEvent.type}" consent request`,
+            type: 'consent',
+            read: false,
+            data: { patientId },
+            createdAt: new Date().toISOString()
+          })
+          sendPushNotification({ userId: data.assignedDoctorId, userType: 'doctor', title: '❌ Consent Rejected', message: `${patientData?.name || 'Family'} rejected the "${consentEvent.type}" consent request`, data: { patientId } })
+        } catch (doctorError) {
+          console.error('Error notifying doctor of consent rejection:', doctorError)
+        }
+      }
+
       setFormSuccess('Consent rejected.');
       setShowConsentOTP(false);
       setSelectedConsent(null);
@@ -807,7 +910,7 @@ const FamilyPortal = () => {
     return (
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-2 border-forest-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-500">Loading patient information...</p>
         </div>
       </div>
@@ -817,15 +920,15 @@ const FamilyPortal = () => {
   if (!patientData) {
     return (
       <div className="min-h-screen bg-[#FAF6EE] flex items-center justify-center p-4">
-        <div className="bg-white/85 backdrop-blur-xl border border-gray-200/50 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl shadow-teal-500/10">
+        <div className="bg-white/85 backdrop-blur-xl border border-gray-200/50 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl shadow-forest-500/10">
           <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Patient Found</h2>
+          <h2 className="text-2xl font-display font-semibold text-gray-900 mb-2">No Patient Found</h2>
           <p className="text-gray-500 mb-6">
             Please contact hospital staff to get your access code.
           </p>
           <button
             onClick={handleLogout}
-            className="w-full py-3 bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.02] transition-all duration-300"
+            className="w-full py-3 bg-gradient-to-r from-forest-700 to-forest-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-forest-500/30 hover:scale-[1.02] transition-all duration-300"
           >
             Go Back
           </button>
@@ -844,7 +947,7 @@ const FamilyPortal = () => {
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-4">
               <button onClick={() => navigate('/family')} className="flex items-center gap-3 group">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/20 group-hover:shadow-teal-500/40 transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20 group-hover:shadow-forest-500/40 transition-all duration-300">
                   <img 
                     src="/src/assets/Logo.png" 
                     alt="AarogyaSandesh Logo" 
@@ -852,8 +955,8 @@ const FamilyPortal = () => {
                   />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">AarogyaSandesh</h1>
-                  <p className="text-xs text-teal-600">Family Portal</p>
+                  <Wordmark size="xs" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
+                  <p className="text-xs text-forest-700">Family Portal</p>
                 </div>
               </button>
             </div>
@@ -862,12 +965,36 @@ const FamilyPortal = () => {
   {pendingConsentEvents.length > 0 && (
     <div className="relative">
       <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-      <button className="p-2 text-gray-500 hover:text-teal-600 transition-colors">
+      <button className="p-2 text-gray-500 hover:text-forest-700 transition-colors">
         <Bell size={20} />
       </button>
     </div>
   )}
   
+  <button
+    onClick={() => setActiveTab('diagnosisInfo')}
+    className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+      activeTab === 'diagnosisInfo'
+        ? 'bg-forest-500 text-white shadow-md shadow-forest-500/30'
+        : 'bg-forest-50 text-forest-800 hover:bg-forest-100 border border-forest-200'
+    }`}
+  >
+    <BookOpen size={16} />
+    Diagnosis Info
+  </button>
+
+  <button
+    onClick={() => setActiveTab('indiaOpenData')}
+    className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
+      activeTab === 'indiaOpenData'
+        ? 'bg-forest-500 text-white shadow-md shadow-forest-500/30'
+        : 'bg-forest-50 text-forest-800 hover:bg-forest-100 border border-forest-200'
+    }`}
+  >
+    <Landmark size={16} />
+    India Open Data
+  </button>
+
   <LanguageToggle />
   <NotificationBell userId={localStorage.getItem('patientId')} userType="family" />
   <div className="flex items-center gap-3">
@@ -913,7 +1040,7 @@ const FamilyPortal = () => {
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 mb-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white">
+              <div className="w-16 h-16 bg-gradient-to-br from-forest-500 to-forest-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-white">
                 {patientData.name?.charAt(0).toUpperCase()}
               </div>
               <div>
@@ -926,15 +1053,15 @@ const FamilyPortal = () => {
                   <span>Patient ID: {patientData.patientId || 'N/A'}</span>
                   <span className="w-px h-3 bg-gray-200"></span>
                   {isDischarged ? (
-                    <span className="text-emerald-600 font-medium">● Discharged</span>
+                    <span className="text-forest-700 font-medium">● Discharged</span>
                   ) : (
-                    <span className="text-emerald-600 font-medium">● Active</span>
+                    <span className="text-forest-700 font-medium">● Active</span>
                   )}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="px-4 py-2 bg-teal-50 text-teal-600 rounded-xl text-sm border border-teal-100">
+              <span className="px-4 py-2 bg-forest-50 text-forest-700 rounded-xl text-sm border border-forest-100">
                 📅 {new Date(patientData.admitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
               </span>
             </div>
@@ -954,9 +1081,9 @@ const FamilyPortal = () => {
             <p className="text-sm text-gray-500">{t('family.billing.deposits')}</p>
             <p className="text-xl font-bold text-yellow-600">₹{totalDeposits.toLocaleString()}</p>
           </div>
-          <div className={`bg-white/80 backdrop-blur-sm border rounded-xl p-4 shadow-sm ${balance >= 0 ? 'border-emerald-200' : 'border-red-200'}`}>
+          <div className={`bg-white/80 backdrop-blur-sm border rounded-xl p-4 shadow-sm ${balance >= 0 ? 'border-forest-200' : 'border-red-200'}`}>
             <p className="text-sm text-gray-500">{t('family.billing.balance')}</p>
-            <p className={`text-xl font-bold ${balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+            <p className={`text-xl font-bold ${balance >= 0 ? 'text-forest-700' : 'text-red-600'}`}>
               {balance >= 0 ? '₹' : '-₹'}{Math.abs(balance).toLocaleString()}
             </p>
           </div>
@@ -969,7 +1096,7 @@ const FamilyPortal = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-teal-50 text-teal-600 border border-teal-200'
+                  ? 'bg-forest-50 text-forest-700 border border-forest-200'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
@@ -985,11 +1112,11 @@ const FamilyPortal = () => {
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-6 min-h-[400px] shadow-sm">
           {activeTab === 'overview' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('family.portal.tabs.overview')}</h3>
+              <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">{t('family.portal.tabs.overview')}</h3>
               {isDischarged && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">This patient has been discharged. Information is view-only.</span>
+                <div className="mb-4 p-3 bg-forest-50 border border-forest-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-forest-700" />
+                  <span className="text-forest-800 font-medium">This patient has been discharged. Information is view-only.</span>
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1055,11 +1182,11 @@ const FamilyPortal = () => {
 
           {activeTab === 'timeline' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Treatment Timeline</h3>
+              <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">Treatment Timeline</h3>
               {isDischarged && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">Discharged patient - historical timeline</span>
+                <div className="mb-4 p-3 bg-forest-50 border border-forest-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-forest-700" />
+                  <span className="text-forest-800 font-medium">Discharged patient - historical timeline</span>
                 </div>
               )}
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
@@ -1110,7 +1237,7 @@ const FamilyPortal = () => {
                             {event.type === 'consent' && event.data?.status && (
                               <div className="mt-2">
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${
-                                  event.data.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                  event.data.status === 'approved' ? 'bg-forest-100 text-forest-800' :
                                   event.data.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                   'bg-yellow-100 text-yellow-700'
                                 }`}>
@@ -1130,11 +1257,11 @@ const FamilyPortal = () => {
 
           {activeTab === 'clinical' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('family.portal.tabs.clinical')}</h3>
+              <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">{t('family.portal.tabs.clinical')}</h3>
               {isDischarged && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">Discharged patient - clinical history view-only</span>
+                <div className="mb-4 p-3 bg-forest-50 border border-forest-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-forest-700" />
+                  <span className="text-forest-800 font-medium">Discharged patient - clinical history view-only</span>
                 </div>
               )}
               
@@ -1212,7 +1339,7 @@ const FamilyPortal = () => {
 
                   <div className="bg-gray-50/50 rounded-xl border border-gray-200/50 p-4">
                     <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <Pill className="w-4 h-4 text-emerald-500" />
+                      <Pill className="w-4 h-4 text-forest-600" />
                       Medicines
                     </h4>
                     {(clinicalData.medicines || []).length === 0 ? (
@@ -1243,42 +1370,42 @@ const FamilyPortal = () => {
     {(clinicalData.vitals || []).slice().reverse().map((v, index) => {
       const bpStatus = getVitalStatus('bp', v.bp);
       const pulseStatus = getVitalStatus('pulse', v.pulse);
-      const tempStatus = getVitalStatus('temperature', v.temperature);
+      const tempStatus = getVitalStatus('temperature', v.temperature, `°${v.temperatureUnit || 'C'}`);
       const spo2Status = getVitalStatus('oxygenSaturation', v.oxygenSaturation);
       const rrStatus = getVitalStatus('respiratoryRate', v.respiratoryRate);
       
       return (
         <div key={index} className="p-3 bg-white/50 rounded-lg border border-gray-200/50">
           <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className={`p-2 rounded-lg border ${bpStatus.isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${bpStatus.isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">BP</p>
               <p className={`font-medium ${bpStatus.color}`}>{v.bp || '--'}</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${bpStatus.bg} ${bpStatus.color}`}>
                 {bpStatus.label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${pulseStatus.isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${pulseStatus.isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">Pulse</p>
               <p className={`font-medium ${pulseStatus.color}`}>{v.pulse || '--'} bpm</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${pulseStatus.bg} ${pulseStatus.color}`}>
                 {pulseStatus.label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${tempStatus.isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${tempStatus.isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">Temp</p>
-              <p className={`font-medium ${tempStatus.color}`}>{v.temperature || '--'}°C</p>
+              <p className={`font-medium ${tempStatus.color}`}>{v.temperature || '--'}°{v.temperatureUnit || 'C'}</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${tempStatus.bg} ${tempStatus.color}`}>
                 {tempStatus.label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${spo2Status.isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${spo2Status.isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">SpO2</p>
               <p className={`font-medium ${spo2Status.color}`}>{v.oxygenSaturation || '--'}%</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${spo2Status.bg} ${spo2Status.color}`}>
                 {spo2Status.label}
               </div>
             </div>
-            <div className={`p-2 rounded-lg border ${rrStatus.isAbnormal ? 'border-red-300' : 'border-emerald-300'}`}>
+            <div className={`p-2 rounded-lg border ${rrStatus.isAbnormal ? 'border-red-300' : 'border-forest-300'}`}>
               <p className="text-gray-500">RR</p>
               <p className={`font-medium ${rrStatus.color}`}>{v.respiratoryRate || '--'}/min</p>
               <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${rrStatus.bg} ${rrStatus.color}`}>
@@ -1301,7 +1428,12 @@ const FamilyPortal = () => {
                       <Shield className="w-4 h-4 text-violet-500" />
                       Consent History
                     </h4>
-                     <div className="flex items-center gap-2 mb-3">
+                    {autoChainStatus && !autoChainStatus.valid && (
+                      <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                        ⚠️ {t('family.clinical.consent_chain_warning')}
+                      </div>
+                    )}
+                     <div className="flex items-center gap-2 mb-3 flex-wrap">
     <button
       onClick={handleVerifyChain}
       className="px-3 py-1 bg-violet-500/10 text-violet-600 rounded-lg text-xs border border-violet-500/20 hover:bg-violet-500/20 transition-colors"
@@ -1309,11 +1441,23 @@ const FamilyPortal = () => {
       🔒 Verify Chain Integrity
     </button>
     {chainVerification && (
-      <span className={`px-3 py-1 rounded-lg text-xs ${chainVerification.valid ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>
+      <span className={`px-3 py-1 rounded-lg text-xs ${chainVerification.valid ? 'bg-forest-600/10 text-forest-700' : 'bg-red-500/10 text-red-600'}`}>
         {chainVerification.valid ? '✅ Chain verified — no tampering detected' : `⚠️ Chain broken at link ${chainVerification.brokenAt}`}
       </span>
     )}
+    <button
+      onClick={() => setShowConsentInfo(!showConsentInfo)}
+      className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs border border-gray-200 hover:bg-gray-200 transition-colors"
+    >
+      ℹ️ {t('family.clinical.consent_info_toggle')}
+    </button>
   </div>
+  {showConsentInfo && (
+    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+      <p className="text-sm font-medium text-blue-900 mb-1">{t('family.clinical.consent_info_title')}</p>
+      <p className="text-xs text-blue-800 leading-relaxed">{t('family.clinical.consent_info_text')}</p>
+    </div>
+  )}
                     {(clinicalData.consentEvents || []).length === 0 ? (
                       <p className="text-sm text-gray-500">{t('family.clinical.no_consent')}</p>
                     ) : (
@@ -1321,7 +1465,7 @@ const FamilyPortal = () => {
                         {(clinicalData.consentEvents || []).slice().reverse().map((c, index) => (
                           <div key={index} className={`p-3 rounded-lg border ${
                             c.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
-                            c.status === 'approved' ? 'bg-emerald-50 border-emerald-200' :
+                            c.status === 'approved' ? 'bg-forest-50 border-forest-200' :
                             c.status === 'rejected' ? 'bg-red-50 border-red-200' :
                             'bg-gray-50 border-gray-200'
                           }`}>
@@ -1332,7 +1476,7 @@ const FamilyPortal = () => {
                               </div>
                               <span className={`px-2 py-0.5 rounded-full text-xs ${
                                 c.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                c.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                                c.status === 'approved' ? 'bg-forest-100 text-forest-800' :
                                 c.status === 'rejected' ? 'bg-red-100 text-red-700' :
                                 'bg-gray-100 text-gray-700'
                               }`}>
@@ -1343,7 +1487,7 @@ const FamilyPortal = () => {
                               {new Date(c.requestedAt).toLocaleString()}
                             </p>
                             {c.status === 'approved' && (
-                              <p className="text-xs text-emerald-600 mt-1">✓ Approved at {new Date(c.respondedAt).toLocaleString()}</p>
+                              <p className="text-xs text-forest-700 mt-1">✓ Approved at {new Date(c.respondedAt).toLocaleString()}</p>
                             )}
                             {c.status === 'rejected' && (
                               <p className="text-xs text-red-600 mt-1">✗ Rejected at {new Date(c.respondedAt).toLocaleString()}</p>
@@ -1360,13 +1504,31 @@ const FamilyPortal = () => {
 
           {activeTab === 'billing' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('family.billing.title')}</h3>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h3 className="text-lg font-display font-semibold text-gray-900">{t('family.billing.title')}</h3>
+                <button
+                  onClick={() => downloadInvoicePDF({ patient: patientData, billingData, totalBill, totalDeposits, balance })}
+                  className="px-3 py-1.5 bg-forest-50 text-forest-700 rounded-lg text-sm border border-forest-200 hover:bg-forest-100 transition-colors flex items-center gap-1.5"
+                >
+                  <Download size={14} />
+                  Download Invoice
+                </button>
+              </div>
               {isDischarged && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">Discharged patient - final billing summary</span>
+                <div className="mb-4 p-3 bg-forest-50 border border-forest-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-forest-700" />
+                  <span className="text-forest-800 font-medium">Discharged patient - final billing summary</span>
                 </div>
               )}
+
+              <BillingSummaryPanel
+                totalPaid={computePaymentTotals(billingData.items || []).paid}
+                totalUnpaid={computePaymentTotals(billingData.items || []).unpaid}
+                totalDeposits={totalDeposits}
+                balance={balance}
+                className="mb-6"
+              />
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
@@ -1380,17 +1542,21 @@ const FamilyPortal = () => {
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
                       {(billingData.items || []).map((item, index) => (
                         <div key={index} className="p-3 bg-white/50 rounded-lg border border-gray-200/50">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-medium text-gray-900">{item.description}</p>
-                            <p className="text-sm font-bold text-rose-600">₹{item.amount.toLocaleString()}</p>
+                            <p className="text-sm font-bold text-rose-600 whitespace-nowrap">₹{item.amount.toLocaleString()}</p>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <div className="flex items-center gap-2 text-xs text-gray-400 mt-1 flex-wrap">
                             <span className="px-2 py-0.5 bg-gray-100 rounded-full">{item.category || 'Other'}</span>
+                            <PaymentStatusBadge status={getItemStatus(item)} />
                             <span>{new Date(item.addedAt).toLocaleDateString()}</span>
                           </div>
                         </div>
                       ))}
                     </div>
+                  )}
+                  {(billingData.items || []).length > 0 && (
+                    <CategoryBreakdown items={billingData.items} className="mt-4 pt-4 border-t border-gray-200/50" />
                   )}
                 </div>
 
@@ -1426,6 +1592,14 @@ const FamilyPortal = () => {
                   )}
                 </div>
               </div>
+
+              <BillAnalysisPanel
+                items={billingData.items || []}
+                totalBill={totalBill}
+                lengthOfStay={lengthOfStay}
+                totalPaid={computePaymentTotals(billingData.items || []).paid}
+                totalUnpaid={computePaymentTotals(billingData.items || []).unpaid}
+              />
             </div>
           )}
 
@@ -1443,21 +1617,21 @@ const FamilyPortal = () => {
 
           {activeTab === 'hospital' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('family.portal.tabs.hospital_info')}</h3>
+              <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">{t('family.portal.tabs.hospital_info')}</h3>
               {isDischarged && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span className="text-emerald-700 font-medium">Discharged patient - reference information</span>
+                <div className="mb-4 p-3 bg-forest-50 border border-forest-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-forest-700" />
+                  <span className="text-forest-800 font-medium">Discharged patient - reference information</span>
                 </div>
               )}
               
               <div className="mb-6 p-4 bg-white/50 rounded-xl border border-gray-200/50">
                 <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Stethoscope className="w-4 h-4 text-teal-500" />
+                  <Stethoscope className="w-4 h-4 text-forest-500" />
                   Your Doctor
                 </h4>
                 {assignedDoctor ? (
-                  <div className="p-4 bg-teal-50/50 rounded-lg border border-teal-200/50">
+                  <div className="p-4 bg-forest-50/50 rounded-lg border border-forest-200/50">
                     <p className="font-semibold text-gray-900 text-lg">{assignedDoctor.name}</p>
                     <p className="text-gray-600">{assignedDoctor.specialization}</p>
                     {assignedDoctor.department && (
@@ -1480,7 +1654,7 @@ const FamilyPortal = () => {
 
               <div className="mb-6 p-4 bg-white/50 rounded-xl border border-gray-200/50">
                 <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                  <Stethoscope className="w-4 h-4 text-teal-500" />
+                  <Stethoscope className="w-4 h-4 text-forest-500" />
                   All Doctors ({doctors.filter(d => d.availability === 'available').length} available)
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1493,7 +1667,7 @@ const FamilyPortal = () => {
                         </div>
                         <span className={`px-2 py-0.5 rounded-lg text-xs ${
                           doctor.availability === 'available' 
-                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                            ? 'bg-forest-50 text-forest-700 border border-forest-200'
                             : 'bg-red-50 text-red-600 border border-red-200'
                         }`}>
                           {doctor.availability === 'available' ? '● Available' : '● Unavailable'}
@@ -1548,7 +1722,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                 <div className="mt-4">
                   <button
                     onClick={() => setShowVisitingPass(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 flex items-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-forest-500 to-forest-600 text-white rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 flex items-center gap-2"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -1571,18 +1745,21 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
 
           {activeTab === 'discharge' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('family.portal.tabs.discharge')}</h3>
+              <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">{t('family.portal.tabs.discharge')}</h3>
               {dischargeData.discharged ? (
                 <div className="text-center py-8">
-                  <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200">
-                    <CheckCircle className="w-10 h-10 text-emerald-500" />
+                  <div className="w-20 h-20 bg-forest-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-forest-200">
+                    <CheckCircle className="w-10 h-10 text-forest-600" />
                   </div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-2">Patient Discharged</h4>
+                  <h4 className="text-xl font-display font-semibold text-gray-900 mb-2">Patient Discharged</h4>
                   <p className="text-gray-500">
                     Discharged on {new Date(dischargeData.actualTime).toLocaleString()}
                   </p>
                   {dischargeData.dischargeSummary && (
-                    <button className="mt-4 px-6 py-2 bg-teal-50 text-teal-600 rounded-xl hover:bg-teal-100 transition-colors">
+                    <button
+                      onClick={() => setShowDischargeSummaryModal(true)}
+                      className="mt-4 px-6 py-2 bg-forest-50 text-forest-700 rounded-xl hover:bg-forest-100 transition-colors"
+                    >
                       View Summary
                     </button>
                   )}
@@ -1604,7 +1781,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                           <div key={key} className="flex items-center justify-between p-3 bg-white/50 rounded-lg border border-gray-200/50">
                             <span className="text-sm text-gray-500">{labels[key] || key}</span>
                             {value ? (
-                              <CheckCircle className="w-5 h-5 text-emerald-500" />
+                              <CheckCircle className="w-5 h-5 text-forest-600" />
                             ) : (
                               <Clock className="w-5 h-5 text-gray-400" />
                             )}
@@ -1626,16 +1803,48 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                       <p className="text-sm text-gray-500">Discharge time not set yet</p>
                     )}
                   </div>
+
+                  <div className="lg:col-span-2">
+                    <h4 className="font-medium text-gray-900 mb-3">Vitals Trend This Stay</h4>
+                    <VitalsTrendSummary vitals={clinicalData.vitals || []} />
+                  </div>
                 </div>
               )}
             </div>
           )}
 
+          <AnimatePresence>
+            {showDischargeSummaryModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto"
+                onClick={(e) => { if (e.target === e.currentTarget) setShowDischargeSummaryModal(false); }}
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-white border border-forest-900/10 rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-display font-semibold text-gray-900">Discharge Summary</h3>
+                    <button onClick={() => setShowDischargeSummaryModal(false)} className="text-gray-500 hover:text-gray-900 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <DischargeSummaryView dischargeSummary={dischargeData.dischargeSummary} patient={patientData} />
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {activeTab === 'reports' && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('family.portal.tabs.reports')}</h3>
+                  <h3 className="text-lg font-display font-semibold text-gray-900 mb-4">{t('family.portal.tabs.reports')}</h3>
                   <p className="text-sm text-gray-500">
                     {reports.length} reports, {prescriptions.length} prescriptions
                   </p>
@@ -1659,7 +1868,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                   </div>
                 )}
                 {isDischarged && (
-                  <div className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm border border-emerald-200">
+                  <div className="px-4 py-2 bg-forest-50 text-forest-800 rounded-xl text-sm border border-forest-200">
                     <CheckCircle className="inline w-4 h-4 mr-1" />
                     Discharged - View Only
                   </div>
@@ -1708,7 +1917,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                                 href={report.downloadUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="mt-3 inline-flex items-center gap-2 text-teal-600 hover:text-teal-700 text-sm transition-colors"
+                                className="mt-3 inline-flex items-center gap-2 text-forest-700 hover:text-forest-800 text-sm transition-colors"
                               >
                                 <Eye size={16} />
                                 View Report
@@ -1791,7 +2000,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
           <div key={note.id} className="p-3 bg-violet-50 rounded-lg border border-violet-200">
             <div className="flex items-center gap-2 mb-1">
               <Stethoscope className="w-4 h-4 text-violet-600" />
-              <span className="text-sm font-medium text-violet-700">Dr. {note.doctorName || 'Doctor'}</span>
+              <span className="text-sm font-medium text-violet-700">{formatDoctorName(note.doctorName)}</span>
               <span className="text-xs text-gray-400 ml-auto">{new Date(note.sentAt).toLocaleString()}</span>
             </div>
             <p className="text-sm text-gray-900">{note.text}</p>
@@ -1804,6 +2013,14 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'diagnosisInfo' && (
+            <DiagnosisContextPanel diagnoses={clinicalData.diagnosis} medicines={clinicalData.medicines} />
+          )}
+
+          {activeTab === 'indiaOpenData' && (
+            <IndiaOpenDataPanel />
           )}
         </div>
       </main>
@@ -1843,7 +2060,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
               className="bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full shadow-2xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-amber-500" />
                   Send Note to Staff
                 </h3>
@@ -1880,7 +2097,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-600 text-sm mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-700 text-sm mb-4 p-3 bg-forest-50 border border-forest-200 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -1935,7 +2152,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
               className="bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full shadow-2xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <FileSignature className="w-5 h-5 text-pink-500" />
                   Upload Prescription
                 </h3>
@@ -2041,7 +2258,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                 )}
 
                 {formSuccess && (
-                  <div className="flex items-center gap-2 text-emerald-600 text-sm mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <div className="flex items-center gap-2 text-forest-700 text-sm mb-4 p-3 bg-forest-50 border border-forest-200 rounded-xl">
                     <CheckCircle size={18} />
                     <span>{formSuccess}</span>
                   </div>
@@ -2112,7 +2329,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
               className="bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6 max-w-lg w-full shadow-2xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h3 className="text-xl font-display font-semibold text-gray-900 flex items-center gap-2">
                   <Shield className="w-5 h-5 text-violet-500" />
                   Consent Request
                 </h3>
@@ -2161,7 +2378,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
               )}
 
               {formSuccess && (
-                <div className="flex items-center gap-2 text-emerald-600 text-sm mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <div className="flex items-center gap-2 text-forest-700 text-sm mb-4 p-3 bg-forest-50 border border-forest-200 rounded-xl">
                   <CheckCircle size={18} />
                   <span>{formSuccess}</span>
                 </div>
@@ -2188,7 +2405,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                 </button>
                 <button
                   onClick={() => handleVerifyConsentOTP(selectedConsent.id)}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-forest-600 to-forest-500 text-white rounded-xl hover:shadow-lg hover:shadow-forest-600/30 transition-all"
                 >
                   Approve
                 </button>
@@ -2222,7 +2439,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <span className="text-lg font-bold text-gray-900">AarogyaSandesh</span>
+                <Wordmark size="sm" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
               </div>
               <p className="text-sm text-gray-500">A Health Update, Delivered</p>
               <p className="text-xs text-gray-400 mt-2">Real-time hospital-to-family transparency platform</p>
@@ -2231,20 +2448,20 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
             <div>
               <h4 className="font-semibold text-gray-900 mb-3">Quick Links</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => navigate('/family')} className="text-gray-500 hover:text-teal-600 transition-colors">Dashboard</button></li>
-                <li><button onClick={() => setActiveTab('timeline')} className="text-gray-500 hover:text-teal-600 transition-colors">Treatment Timeline</button></li>
-                <li><button onClick={() => setActiveTab('billing')} className="text-gray-500 hover:text-teal-600 transition-colors">Cost Ledger</button></li>
-                <li><button onClick={() => setActiveTab('discharge')} className="text-gray-500 hover:text-teal-600 transition-colors">Discharge Status</button></li>
+                <li><button onClick={() => navigate('/family')} className="text-gray-500 hover:text-forest-700 transition-colors">Dashboard</button></li>
+                <li><button onClick={() => setActiveTab('timeline')} className="text-gray-500 hover:text-forest-700 transition-colors">Treatment Timeline</button></li>
+                <li><button onClick={() => setActiveTab('billing')} className="text-gray-500 hover:text-forest-700 transition-colors">Cost Ledger</button></li>
+                <li><button onClick={() => setActiveTab('discharge')} className="text-gray-500 hover:text-forest-700 transition-colors">Discharge Status</button></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-semibold text-gray-900 mb-3">Support</h4>
               <ul className="space-y-2 text-sm">
-                <li><button className="text-gray-500 hover:text-teal-600 transition-colors">Help Center</button></li>
-                <li><button className="text-gray-500 hover:text-teal-600 transition-colors">Contact Us</button></li>
-                <li><button className="text-gray-500 hover:text-teal-600 transition-colors">Privacy Policy</button></li>
-                <li><button className="text-gray-500 hover:text-teal-600 transition-colors">Terms of Service</button></li>
+                <li><button className="text-gray-500 hover:text-forest-700 transition-colors">Help Center</button></li>
+                <li><button className="text-gray-500 hover:text-forest-700 transition-colors">Contact Us</button></li>
+                <li><Link to="/privacy-policy" className="text-gray-500 hover:text-forest-700 transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms-of-service" className="text-gray-500 hover:text-forest-700 transition-colors">Terms of Service</Link></li>
               </ul>
             </div>
 
@@ -2252,7 +2469,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
               <h4 className="font-semibold text-gray-900 mb-3">Contact</h4>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center gap-2">📧 aarogyasandesh.support@gmail.com</li>
-                <li className="flex items-center gap-2">📞 +91 1800-123-4567</li>
+                <li className="flex items-center gap-2">📞 +91 8977039397</li>
                 <li className="flex items-center gap-2">🏥 Made in India</li>
               </ul>
             </div>

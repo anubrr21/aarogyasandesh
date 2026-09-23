@@ -9,7 +9,7 @@ const PrivacyPolicy = () => {
     <div className="max-w-4xl mx-auto py-12 px-4">
       <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-2 text-gray-500 hover:text-teal-600 transition-colors mb-6"
+        className="flex items-center gap-2 text-gray-500 hover:text-forest-700 transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back
@@ -20,8 +20,8 @@ const PrivacyPolicy = () => {
         className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl p-8 shadow-sm"
       >
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-teal-50 rounded-xl border border-teal-200/50">
-            <Shield className="w-6 h-6 text-teal-600" />
+          <div className="p-2 bg-forest-50 rounded-xl border border-forest-200/50">
+            <Shield className="w-6 h-6 text-forest-700" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Privacy Policy</h1>
@@ -30,15 +30,15 @@ const PrivacyPolicy = () => {
         </div>
 
         <div className="prose prose-sm max-w-none text-gray-600 space-y-6">
-          <div className="bg-teal-50/50 p-4 rounded-xl border border-teal-200/50">
-            <p className="text-sm text-teal-700">
+          <div className="bg-forest-50/50 p-4 rounded-xl border border-forest-200/50">
+            <p className="text-sm text-forest-800">
               <strong>AarogyaSandesh</strong> is committed to protecting your privacy. This policy explains how we collect, use, and safeguard your personal information.
             </p>
           </div>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Database className="w-4 h-4 text-teal-500" />
+              <Database className="w-4 h-4 text-forest-500" />
               Information We Collect
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -52,7 +52,7 @@ const PrivacyPolicy = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-teal-500" />
+              <Lock className="w-4 h-4 text-forest-500" />
               How We Use Your Information
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -66,7 +66,7 @@ const PrivacyPolicy = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-teal-500" />
+              <Lock className="w-4 h-4 text-forest-500" />
               Data Security
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -80,7 +80,7 @@ const PrivacyPolicy = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-teal-500" />
+              <UserCheck className="w-4 h-4 text-forest-500" />
               Your Rights
             </h2>
             <ul className="list-disc pl-5 space-y-1">
@@ -94,7 +94,7 @@ const PrivacyPolicy = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Eye className="w-4 h-4 text-teal-500" />
+              <Eye className="w-4 h-4 text-forest-500" />
               Data Sharing
             </h2>
             <p>We do not sell or share your personal information with third parties except:</p>
@@ -108,13 +108,13 @@ const PrivacyPolicy = () => {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-teal-500" />
+              <Mail className="w-4 h-4 text-forest-500" />
               Contact Us
             </h2>
             <p>If you have any questions about this Privacy Policy, please contact us:</p>
             <div className="mt-2 p-3 bg-gray-50 rounded-xl border border-gray-200/50">
               <p className="text-sm">📧 Email: aarogyasandesh.support@gmail.com</p>
-              <p className="text-sm">📞 Phone: +91 1800-123-4567</p>
+              <p className="text-sm">📞 Phone: +91 8977039397</p>
             </div>
           </section>
 

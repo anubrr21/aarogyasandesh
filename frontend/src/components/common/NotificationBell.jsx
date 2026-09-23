@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, X, CheckCircle, AlertCircle, Clock, Shield, MessageSquare, FileText, CreditCard } from 'lucide-react'
+import { Bell, X, CheckCircle, AlertCircle, Clock, Shield, MessageSquare, FileText, CreditCard, BellRing, BellPlus } from 'lucide-react'
 import { db } from '../../firebase/firebase'
 import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/firestore'
+import { enablePushNotifications } from '../../utils/pushNotifications'
+
+const PUSH_ENABLED_KEY = 'pushNotificationsEnabled'
 
 const NotificationBell = ({ userId, userType = 'family' }) => {
   const [notifications, setNotifications] = useState([])
   const [isOpen, setIsOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [pushStatus, setPushStatus] = useState(() => localStorage.getItem(PUSH_ENABLED_KEY) === 'true' ? 'enabled' : 'idle')
+  const [pushError, setPushError] = useState('')
 
   useEffect(() => {
     if (!userId) return
@@ -53,6 +58,19 @@ const NotificationBell = ({ userId, userType = 'family' }) => {
     }
   }
 
+  const handleEnablePush = async () => {
+    setPushStatus('loading')
+    setPushError('')
+    const result = await enablePushNotifications()
+    if (result.success) {
+      setPushStatus('enabled')
+      localStorage.setItem(PUSH_ENABLED_KEY, 'true')
+    } else {
+      setPushStatus('idle')
+      setPushError(result.error || 'Could not enable notifications.')
+    }
+  }
+
   const getIcon = (type) => {
     switch(type) {
       case 'consent': return Shield
@@ -70,8 +88,8 @@ const NotificationBell = ({ userId, userType = 'family' }) => {
       case 'note': return 'text-amber-400'
       case 'bill': return 'text-rose-400'
       case 'report': return 'text-orange-400'
-      case 'discharge': return 'text-emerald-400'
-      default: return 'text-teal-400'
+      case 'discharge': return 'text-forest-400'
+      default: return 'text-forest-400'
     }
   }
 
@@ -95,7 +113,7 @@ const NotificationBell = ({ userId, userType = 'family' }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-500 hover:text-teal-600 transition-colors"
+        className="relative p-2 text-gray-500 hover:text-forest-700 transition-colors"
       >
         <Bell size={20} />
         {unreadCount > 0 && (
@@ -124,12 +142,31 @@ const NotificationBell = ({ userId, userType = 'family' }) => {
               {unreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
-                  className="text-xs text-teal-600 hover:text-teal-700 transition-colors"
+                  className="text-xs text-forest-700 hover:text-forest-800 transition-colors"
                 >
                   Mark all read
                 </button>
               )}
             </div>
+
+            {pushStatus === 'enabled' ? (
+              <div className="px-4 py-2 bg-forest-50/60 border-b border-gray-200/50 flex items-center gap-2 text-xs text-forest-800">
+                <BellRing className="w-3.5 h-3.5" />
+                Push notifications are on for this device
+              </div>
+            ) : (
+              <div className="px-4 py-2 bg-forest-50/60 border-b border-gray-200/50">
+                <button
+                  onClick={handleEnablePush}
+                  disabled={pushStatus === 'loading'}
+                  className="flex items-center gap-2 text-xs text-forest-800 hover:text-forest-900 transition-colors disabled:opacity-50"
+                >
+                  <BellPlus className="w-3.5 h-3.5" />
+                  {pushStatus === 'loading' ? 'Enabling…' : 'Enable notifications on this device'}
+                </button>
+                {pushError && <p className="text-[10px] text-red-500 mt-1">{pushError}</p>}
+              </div>
+            )}
 
             <div className="overflow-y-auto max-h-96">
               {notifications.length === 0 ? (
@@ -146,11 +183,11 @@ const NotificationBell = ({ userId, userType = 'family' }) => {
                       key={notif.id}
                       onClick={() => markAsRead(notif.id)}
                       className={`px-4 py-3 border-b border-gray-100/50 hover:bg-gray-50/50 transition-colors cursor-pointer ${
-                        !notif.read ? 'bg-teal-50/30' : ''
+                        !notif.read ? 'bg-forest-50/30' : ''
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`p-1.5 rounded-full bg-white/50 border border-gray-200/50 flex-shrink-0 ${!notif.read ? 'border-teal-300' : ''}`}>
+                        <div className={`p-1.5 rounded-full bg-white/50 border border-gray-200/50 flex-shrink-0 ${!notif.read ? 'border-forest-300' : ''}`}>
                           <Icon className={`w-4 h-4 ${color}`} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -161,12 +198,12 @@ const NotificationBell = ({ userId, userType = 'family' }) => {
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[10px] text-gray-400">{formatTime(notif.createdAt)}</span>
                             {!notif.read && (
-                              <span className="w-1.5 h-1.5 bg-teal-500 rounded-full"></span>
+                              <span className="w-1.5 h-1.5 bg-forest-500 rounded-full"></span>
                             )}
                           </div>
                         </div>
                         {!notif.read && (
-                          <div className="w-2 h-2 bg-teal-500 rounded-full flex-shrink-0 mt-1.5"></div>
+                          <div className="w-2 h-2 bg-forest-500 rounded-full flex-shrink-0 mt-1.5"></div>
                         )}
                       </div>
                     </div>

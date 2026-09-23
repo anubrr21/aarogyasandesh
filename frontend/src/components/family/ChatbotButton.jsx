@@ -25,7 +25,7 @@ const ChatbotButton = ({
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+        className="fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-r from-forest-500 to-forest-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
       >
         <Bot className="w-6 h-6" />
       </motion.button>

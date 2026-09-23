@@ -1,4 +1,4 @@
-// backend/scripts/backfillRoles.js
+
 import admin from '../src/config/firebase-admin.js';
 
 const db = admin.firestore();
@@ -6,7 +6,6 @@ const db = admin.firestore();
 async function backfillRoles() {
   const { users } = await admin.auth().listUsers();
 
-  // Build lookup sets from Firestore so we know who's who
   const doctorsSnap = await db.collection('doctors').get();
   const doctorEmails = new Set(doctorsSnap.docs.map(d => d.data().email));
 

@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import Wordmark from '../common/Wordmark';
 
 const IntroAnimation = () => {
   const [isVisible, setIsVisible] = useState(true);
@@ -40,14 +41,14 @@ const IntroAnimation = () => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.6 }}
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-emerald-50 via-teal-50/95 to-cyan-50"
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-parchment-100"
         style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-400/20 via-teal-400/10 to-transparent" />
-        
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-forest-200/25 via-brass-100/15 to-transparent" />
+
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
-            className="absolute -top-60 -right-60 w-[500px] h-[500px] bg-emerald-300/25 rounded-full blur-3xl"
+            className="absolute -top-60 -right-60 w-[500px] h-[500px] bg-forest-300/20 rounded-full blur-3xl"
             animate={{
               x: [0, -150, 0],
               y: [0, 80, 0],
@@ -59,7 +60,7 @@ const IntroAnimation = () => {
             }}
           />
           <motion.div
-            className="absolute -bottom-60 -left-60 w-[600px] h-[600px] bg-teal-300/20 rounded-full blur-3xl"
+            className="absolute -bottom-60 -left-60 w-[600px] h-[600px] bg-brass-200/20 rounded-full blur-3xl"
             animate={{
               x: [0, 150, 0],
               y: [0, -80, 0],
@@ -71,7 +72,7 @@ const IntroAnimation = () => {
             }}
           />
           <motion.div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-300/15 rounded-full blur-3xl"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-forest-100/25 rounded-full blur-3xl"
             animate={{
               scale: [1, 1.3, 1],
               opacity: [0.3, 0.6, 0.3],
@@ -101,9 +102,9 @@ const IntroAnimation = () => {
                 className="absolute inset-0 rounded-full"
                 animate={{
                   boxShadow: [
-                    '0 0 40px rgba(16, 185, 129, 0.2)',
-                    '0 0 100px rgba(16, 185, 129, 0.4)',
-                    '0 0 40px rgba(16, 185, 129, 0.2)'
+                    '0 0 40px rgba(57, 100, 71, 0.2)',
+                    '0 0 100px rgba(184, 134, 58, 0.35)',
+                    '0 0 40px rgba(57, 100, 71, 0.2)'
                   ]
                 }}
                 transition={{
@@ -113,7 +114,7 @@ const IntroAnimation = () => {
                 }}
               />
               <motion.div
-                className="absolute inset-0 rounded-full border-2 border-emerald-400/30"
+                className="absolute inset-0 rounded-full border-2 border-forest-400/30"
                 animate={{
                   scale: [1, 1.2, 1],
                   opacity: [0.5, 0.1, 0.5]
@@ -125,7 +126,7 @@ const IntroAnimation = () => {
                 }}
               />
               <motion.div
-                className="absolute inset-0 rounded-full border border-emerald-300/20"
+                className="absolute inset-0 rounded-full border border-forest-300/20"
                 animate={{
                   scale: [1, 1.4, 1],
                   opacity: [0.3, 0, 0.3]
@@ -138,7 +139,7 @@ const IntroAnimation = () => {
                 }}
               />
               <motion.div
-                className="absolute inset-0 rounded-full border border-teal-300/15"
+                className="absolute inset-0 rounded-full border border-brass-300/25"
                 animate={{
                   scale: [1, 1.6, 1],
                   opacity: [0.2, 0, 0.2]
@@ -171,11 +172,11 @@ const IntroAnimation = () => {
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: -30, opacity: 0, scale: 0.8 }}
                 transition={{ duration: 0.5 }}
-                className="text-5xl md:text-6xl font-bold text-emerald-700/80"
+                className="text-5xl md:text-6xl font-bold text-forest-800/80"
                 style={{ fontFamily: "'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Bengali', 'Noto Sans Gurmukhi', 'Noto Sans Gujarati', sans-serif" }}
               >
                 {greetings[greetingIndex].text}
-                <span className="text-sm md:text-base text-emerald-500/50 ml-4 font-mono font-normal">
+                <span className="text-sm md:text-base text-brass-500/60 ml-4 font-mono font-normal">
                   {greetings[greetingIndex].lang}
                 </span>
               </motion.div>
@@ -183,16 +184,17 @@ const IntroAnimation = () => {
           </motion.div>
 
           <motion.h1
-            className="text-6xl md:text-8xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent mb-3 font-inter tracking-tight"
+            className="font-display font-bold text-forest-950 mb-3 tracking-tight whitespace-nowrap"
+            style={{ fontSize: 'clamp(2.25rem, 11vw, 6rem)' }}
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4, duration: 0.7, type: "spring" }}
           >
-            AarogyaSandesh
+            Aarogya <span className="font-devanagari text-brass-600">संदेश</span>
           </motion.h1>
 
           <motion.p
-            className="text-lg md:text-xl text-gray-600 font-light tracking-[0.5em] uppercase"
+            className="text-lg md:text-xl text-slate-500 font-light tracking-[0.5em] uppercase"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.7, duration: 0.6 }}
@@ -229,7 +231,7 @@ const IntroAnimation = () => {
           </motion.div>
 
           <motion.div
-            className="mt-8 w-72 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent mx-auto"
+            className="mt-8 w-72 h-px bg-gradient-to-r from-transparent via-brass-400/50 to-transparent mx-auto"
             initial={{ scaleX: 0 }}
             animate={{ scaleX: 1 }}
             transition={{ delay: 1.2, duration: 1 }}
@@ -242,15 +244,15 @@ const IntroAnimation = () => {
             transition={{ delay: 1.5 }}
           >
             <span className="flex items-center gap-1.5">
-              <span className="text-emerald-500 text-lg"></span>
+              <span className="text-lg">🇮🇳</span>
               Made in India
-              <span className="text-emerald-500 text-lg"></span>
+              <span className="text-lg">🇮🇳</span>
             </span>
             <span className="w-px h-4 bg-gray-300/50" />
             <span className="flex items-center gap-1.5">
-              <span className="text-rose-400 text-lg"></span>
+              <span className="text-rose-400 text-lg">❤️</span>
               With Care
-              <span className="text-rose-400 text-lg"></span>
+              <span className="text-rose-400 text-lg">❤️</span>
             </span>
           </motion.div>
 

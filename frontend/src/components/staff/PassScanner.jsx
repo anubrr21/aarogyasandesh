@@ -163,8 +163,8 @@ const PassScanner = ({ onClose }) => {
     <div className="bg-white rounded-2xl p-6 max-w-lg w-full border border-gray-200/50 shadow-2xl">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="p-2 bg-teal-50 rounded-lg border border-teal-200/50">
-            <Hospital className="w-5 h-5 text-teal-600" />
+          <div className="p-2 bg-forest-50 rounded-lg border border-forest-200/50">
+            <Hospital className="w-5 h-5 text-forest-700" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">Scan Visiting Pass</h2>
         </div>
@@ -180,14 +180,14 @@ const PassScanner = ({ onClose }) => {
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => setMode('camera')}
-            className="flex-1 px-3 py-3 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-teal-50 hover:text-teal-600 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 px-3 py-3 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-forest-50 hover:text-forest-700 transition-colors flex items-center justify-center gap-2"
           >
             <Camera className="w-4 h-4" />
             Camera
           </button>
           <button
             onClick={() => setMode('upload')}
-            className="flex-1 px-3 py-3 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-teal-50 hover:text-teal-600 transition-colors flex items-center justify-center gap-2"
+            className="flex-1 px-3 py-3 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-forest-50 hover:text-forest-700 transition-colors flex items-center justify-center gap-2"
           >
             <Upload className="w-4 h-4" />
             Upload QR
@@ -199,14 +199,14 @@ const PassScanner = ({ onClose }) => {
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => switchMode('camera')}
-            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${mode === 'camera' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${mode === 'camera' ? 'bg-forest-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
             <Camera className="w-4 h-4" />
             Camera
           </button>
           <button
             onClick={() => switchMode('upload')}
-            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${mode === 'upload' ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${mode === 'upload' ? 'bg-forest-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
           >
             <Upload className="w-4 h-4" />
             Upload QR
@@ -239,7 +239,7 @@ const PassScanner = ({ onClose }) => {
         <div className="text-center">
           <div id="qr-upload-container" className="w-full"></div>
           <div 
-            className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-teal-400 transition-colors"
+            className="border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-forest-400 transition-colors"
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
@@ -283,7 +283,7 @@ const PassScanner = ({ onClose }) => {
             <button
               onClick={() => verifyPass(pendingToken, confirmName)}
               disabled={!confirmName.trim()}
-              className="flex-1 px-4 py-2 bg-teal-500 text-white rounded-xl hover:bg-teal-600 disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-forest-500 text-white rounded-xl hover:bg-forest-700 disabled:opacity-50"
             >
               Confirm & Verify
             </button>
@@ -307,11 +307,11 @@ const PassScanner = ({ onClose }) => {
       {scanResult && (
         <div className="mt-4">
           {scanResult.valid ? (
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <div className="p-4 bg-forest-50 border border-forest-200 rounded-xl">
               <div className="flex items-center gap-3 mb-3">
-                <CheckCircle className="w-8 h-8 text-emerald-500" />
+                <CheckCircle className="w-8 h-8 text-forest-600" />
                 <div>
-                  <h3 className="text-lg font-bold text-emerald-600">✅ Entry Granted</h3>
+                  <h3 className="text-lg font-bold text-forest-700">✅ Entry Granted</h3>
                   <p className="text-sm text-gray-600">Pass verified successfully</p>
                 </div>
               </div>
@@ -344,7 +344,7 @@ const PassScanner = ({ onClose }) => {
 
           <button
             onClick={resetScanner}
-            className="mt-4 w-full py-2 bg-teal-500 text-white rounded-xl hover:bg-teal-600 transition-colors"
+            className="mt-4 w-full py-2 bg-forest-500 text-white rounded-xl hover:bg-forest-700 transition-colors"
           >
             Scan Another Pass
           </button>

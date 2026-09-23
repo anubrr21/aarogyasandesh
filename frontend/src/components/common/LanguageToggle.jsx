@@ -22,7 +22,7 @@ const LanguageToggle = () => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-3 py-2 text-gray-600 hover:text-teal-600 transition-colors rounded-xl hover:bg-teal-50"
+        className="flex items-center gap-1.5 px-3 py-2 text-gray-600 hover:text-forest-700 transition-colors rounded-xl hover:bg-forest-50"
       >
         <Globe className="w-4 h-4" />
         <span className="text-sm font-medium">{currentLanguage.flag} {currentLanguage.label}</span>
@@ -36,12 +36,12 @@ const LanguageToggle = () => {
               key={lang.code}
               onClick={() => changeLanguage(lang.code)}
               className={`w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center gap-2 ${
-                language === lang.code ? 'bg-teal-50 text-teal-600' : 'text-gray-700 hover:bg-gray-50'
+                language === lang.code ? 'bg-forest-50 text-forest-700' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
               <span>{lang.flag}</span>
               <span>{lang.label}</span>
-              {language === lang.code && <span className="ml-auto text-teal-600">✓</span>}
+              {language === lang.code && <span className="ml-auto text-forest-700">✓</span>}
             </button>
           ))}
         </div>

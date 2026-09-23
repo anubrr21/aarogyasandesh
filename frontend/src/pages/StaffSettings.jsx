@@ -2,22 +2,26 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
-import { db, storage, ref, uploadBytes, getDownloadURL } from '../firebase/firebase'
+import { db, storage, ref, uploadBytes, getDownloadURL, auth } from '../firebase/firebase'
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore'
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  IdCard, 
-  Save, 
-  Camera, 
+import {
+  User,
+  Mail,
+  Phone,
+  IdCard,
+  Save,
+  Camera,
   X,
   CheckCircle,
   AlertCircle,
   Shield,
   Calendar,
-  ArrowLeft
+  ArrowLeft,
+  Key,
+  Copy
 } from 'lucide-react'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 const StaffSettings = () => {
   const { user } = useAuth()
@@ -38,6 +42,9 @@ const StaffSettings = () => {
   const [profileImagePreview, setProfileImagePreview] = useState(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [staffRegCode, setStaffRegCode] = useState('')
+  const [staffRegCodeError, setStaffRegCodeError] = useState('')
+  const [codeCopied, setCodeCopied] = useState(false)
 
   useEffect(() => {
     const fetchStaffData = async () => {
@@ -98,6 +105,44 @@ const StaffSettings = () => {
       fetchStaffData()
     }
   }, [user])
+
+  // Lets an already-verified staff member view the current staff registration code so they can
+  // hand it to a new hire during onboarding. Backend independently re-checks the staff role claim
+  // on every request, so this is safe even if this page were somehow reached without that role.
+  useEffect(() => {
+    const fetchStaffRegCode = async () => {
+      try {
+        if (!auth.currentUser) return
+        const idToken = await auth.currentUser.getIdToken()
+        const res = await fetch(`${API_URL}/api/auth/staff-registration-code`, {
+          headers: { Authorization: `Bearer ${idToken}` }
+        })
+        const data = await res.json()
+        if (data.success && data.code) {
+          setStaffRegCode(data.code)
+        } else {
+          setStaffRegCodeError(data.error || 'Could not load staff registration code')
+        }
+      } catch (err) {
+        console.error('Error fetching staff registration code:', err)
+        setStaffRegCodeError('Could not load staff registration code')
+      }
+    }
+
+    if (user) {
+      fetchStaffRegCode()
+    }
+  }, [user])
+
+  const handleCopyStaffCode = async () => {
+    try {
+      await navigator.clipboard.writeText(staffRegCode)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    } catch (err) {
+      console.error('Copy failed:', err)
+    }
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -165,7 +210,7 @@ const StaffSettings = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     )
   }
@@ -174,18 +219,18 @@ const StaffSettings = () => {
     <div className="max-w-4xl mx-auto py-8 px-4">
       <button
         onClick={() => navigate('/staff')}
-        className="flex items-center gap-2 text-gray-500 hover:text-teal-600 transition-colors mb-6"
+        className="flex items-center gap-2 text-gray-500 hover:text-forest-700 transition-colors mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Dashboard
       </button>
 
       <div className="flex items-center gap-3 mb-8">
-        <div className="p-2 bg-teal-50 rounded-xl border border-teal-200/50">
-          <User className="w-5 h-5 text-teal-600" />
+        <div className="p-2 bg-forest-50 rounded-xl border border-forest-200/50">
+          <User className="w-5 h-5 text-forest-700" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Staff Settings</h1>
+          <h1 className="text-2xl font-display font-semibold text-gray-900">Staff Settings</h1>
           <p className="text-sm text-gray-500">Manage your profile and personal information</p>
         </div>
       </div>
@@ -194,7 +239,7 @@ const StaffSettings = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
             <div className="relative">
-              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center text-3xl font-bold text-white overflow-hidden">
+              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-forest-500 to-forest-500 flex items-center justify-center text-3xl font-bold text-white overflow-hidden">
                 {profileImagePreview || formData.profileImage ? (
                   <img
                     src={profileImagePreview || formData.profileImage}
@@ -205,7 +250,7 @@ const StaffSettings = () => {
                   formData.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()
                 )}
               </div>
-              <label className="absolute bottom-0 right-0 p-1.5 bg-teal-500 rounded-full cursor-pointer hover:bg-teal-600 transition-colors shadow-lg">
+              <label className="absolute bottom-0 right-0 p-1.5 bg-forest-500 rounded-full cursor-pointer hover:bg-forest-700 transition-colors shadow-lg">
                 <Camera className="w-4 h-4 text-white" />
                 <input
                   type="file"
@@ -221,14 +266,14 @@ const StaffSettings = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200">
-                    <IdCard className="w-4 h-4 text-teal-500" />
+                    <IdCard className="w-4 h-4 text-forest-500" />
                     <span className="text-gray-900 font-mono text-sm">{formData.employeeId}</span>
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Join Date</label>
                   <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 rounded-xl border border-gray-200">
-                    <Calendar className="w-4 h-4 text-teal-500" />
+                    <Calendar className="w-4 h-4 text-forest-500" />
                     <span className="text-gray-900 text-sm">{new Date(formData.joinDate).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -244,7 +289,7 @@ const StaffSettings = () => {
                 name="displayName"
                 value={formData.displayName}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
                 placeholder="Enter your full name"
                 required
               />
@@ -266,7 +311,7 @@ const StaffSettings = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
                 placeholder="Enter phone number"
               />
             </div>
@@ -278,7 +323,7 @@ const StaffSettings = () => {
                 name="department"
                 value={formData.department}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
                 placeholder="e.g., Cardiology, Emergency"
               />
             </div>
@@ -290,7 +335,7 @@ const StaffSettings = () => {
                 name="designation"
                 value={formData.designation}
                 onChange={handleChange}
-                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all"
                 placeholder="e.g., Head Nurse, Junior Doctor, Administrator"
               />
             </div>
@@ -304,7 +349,7 @@ const StaffSettings = () => {
           )}
 
           {success && (
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-600 text-sm">
+            <div className="flex items-center gap-2 p-3 bg-forest-50 border border-forest-200 rounded-xl text-forest-700 text-sm">
               <CheckCircle className="w-4 h-4 flex-shrink-0" />
               <span>{success}</span>
             </div>
@@ -321,7 +366,7 @@ const StaffSettings = () => {
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-6 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-2.5 bg-gradient-to-r from-forest-500 to-forest-600 text-white font-medium rounded-xl hover:shadow-lg hover:shadow-forest-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {saving ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -336,11 +381,41 @@ const StaffSettings = () => {
         </form>
       </div>
 
-      <div className="mt-4 p-4 bg-teal-50/50 rounded-xl border border-teal-200/50 flex items-center gap-3">
-        <Shield className="w-5 h-5 text-teal-500" />
+      <div className="mt-4 p-4 bg-forest-50/50 rounded-xl border border-forest-200/50 flex items-center gap-3">
+        <Shield className="w-5 h-5 text-forest-500" />
         <div className="text-sm">
           <p className="font-medium text-gray-900">Employee ID: {formData.employeeId}</p>
           <p className="text-gray-500 text-xs">Use this ID along with your email for login</p>
+        </div>
+      </div>
+
+      <div className="mt-4 p-4 bg-amber-50/50 rounded-xl border border-amber-200/50">
+        <div className="flex items-start gap-3">
+          <Key className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-gray-900 text-sm">Staff Registration Code</p>
+            <p className="text-gray-500 text-xs mb-2">
+              Share this with a new hire when they register as Staff — it's required for anyone to create a staff account. Only verified staff can see this code.
+            </p>
+            {staffRegCode ? (
+              <div className="flex items-center gap-2">
+                <code className="px-3 py-1.5 bg-white rounded-lg text-sm font-mono text-amber-700 border border-amber-200 tracking-widest">
+                  {staffRegCode}
+                </code>
+                <button
+                  type="button"
+                  onClick={handleCopyStaffCode}
+                  className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded-lg transition-colors"
+                  title="Copy code"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+                {codeCopied && <span className="text-xs text-forest-700">Copied!</span>}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">{staffRegCodeError || 'Loading…'}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

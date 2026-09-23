@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { usePatients } from '../context/PatientContext';
 import NotificationBell from '../components/common/NotificationBell'
+import Wordmark from '../components/common/Wordmark'
 import PassScanner from '../components/staff/PassScanner'
+import { db } from '../firebase/firebase'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { 
   Search, 
   Plus, 
@@ -55,9 +58,41 @@ const StaffPortal = () => {
     room: '',
     abhaId: '',
     phone: '',
-    gender: 'Male'
+    gender: 'Male',
+    onVentilator: false,
+    onOxygenSupport: false
   });
   const [formError, setFormError] = useState('');
+
+  // Ensures every logged-in staff member has a `staff/{uid}` Firestore doc as soon as they
+  // reach the portal — this doc is how doctor/family notes find staff to notify. Previously it
+  // was only created when a staff member visited Settings, so anyone who hadn't yet would never
+  // receive any notification. Safe no-op if the doc already exists.
+  useEffect(() => {
+    const ensureStaffDoc = async () => {
+      if (!user?.uid) return
+      try {
+        const staffRef = doc(db, 'staff', user.uid)
+        const staffSnap = await getDoc(staffRef)
+        if (!staffSnap.exists()) {
+          await setDoc(staffRef, {
+            displayName: user.displayName || '',
+            phone: '',
+            department: '',
+            designation: '',
+            employeeId: `EMP${new Date().getFullYear()}${String(Math.floor(1000 + Math.random() * 9000))}`,
+            email: user.email || '',
+            joinDate: new Date().toISOString().split('T')[0],
+            profileImage: '',
+            createdAt: new Date().toISOString()
+          })
+        }
+      } catch (error) {
+        console.error('Error ensuring staff record exists:', error)
+      }
+    }
+    ensureStaffDoc()
+  }, [user?.uid])
   const [formSuccess, setFormSuccess] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [patientId, setPatientId] = useState('');
@@ -69,6 +104,7 @@ const StaffPortal = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('patientId');
     localStorage.removeItem('patientData');
+    localStorage.removeItem('staffGroup');
     navigate('/login');
   };
 
@@ -122,7 +158,9 @@ const StaffPortal = () => {
         room: '',
         abhaId: '',
         phone: '',
-        gender: 'Male'
+        gender: 'Male',
+        onVentilator: false,
+        onOxygenSupport: false
       });
       
       setTimeout(() => {
@@ -179,7 +217,7 @@ const StaffPortal = () => {
             {/* Logo */}
             <div className="flex items-center gap-3">
               <button onClick={() => navigate('/staff')} className="flex items-center gap-2 group">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/20">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20">
                   <img 
                     src="/src/assets/Logo.png" 
                     alt="AarogyaSandesh Logo" 
@@ -187,8 +225,8 @@ const StaffPortal = () => {
                   />
                 </div>
                 <div className="hidden sm:block">
-                  <h1 className="text-lg font-bold text-gray-900">AarogyaSandesh</h1>
-                  <p className="text-[10px] text-teal-600">Staff Portal</p>
+                  <Wordmark size="xs" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
+                  <p className="text-[10px] text-forest-700">Staff Portal</p>
                 </div>
               </button>
             </div>
@@ -198,7 +236,7 @@ const StaffPortal = () => {
               <button 
                 onClick={() => { setShowAllPatients(false); setActiveTab('active'); navigate('/staff'); }} 
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === 'active' ? 'bg-teal-50 text-teal-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  activeTab === 'active' ? 'bg-forest-50 text-forest-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 Dashboard
@@ -206,7 +244,7 @@ const StaffPortal = () => {
               <button 
                 onClick={() => { setShowAllPatients(true); setActiveTab('all'); }} 
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === 'all' ? 'bg-teal-50 text-teal-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  activeTab === 'all' ? 'bg-forest-50 text-forest-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 All Patients
@@ -229,8 +267,14 @@ const StaffPortal = () => {
               >
                 Visiting Hours
               </Link>
-              <Link 
-                to="/staff/settings" 
+              <Link
+                to="/staff/command-center"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all"
+              >
+                Command Center
+              </Link>
+              <Link
+                to="/staff/settings"
                 className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all"
               >
                 Settings
@@ -283,8 +327,8 @@ const StaffPortal = () => {
                 <p className="text-sm text-gray-500">Total Patients</p>
                 <p className="text-2xl font-bold text-gray-900">{patients.length}</p>
               </div>
-              <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center border border-teal-100">
-                <Users className="w-6 h-6 text-teal-600" />
+              <div className="w-12 h-12 bg-forest-50 rounded-xl flex items-center justify-center border border-forest-100">
+                <Users className="w-6 h-6 text-forest-700" />
               </div>
             </div>
           </motion.div>
@@ -298,10 +342,10 @@ const StaffPortal = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Active Patients</p>
-                <p className="text-2xl font-bold text-emerald-600">{activePatients.length}</p>
+                <p className="text-2xl font-bold text-forest-700">{activePatients.length}</p>
               </div>
-              <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
-                <Activity className="w-6 h-6 text-emerald-600" />
+              <div className="w-12 h-12 bg-forest-50 rounded-xl flex items-center justify-center border border-forest-100">
+                <Activity className="w-6 h-6 text-forest-700" />
               </div>
             </div>
           </motion.div>
@@ -351,7 +395,7 @@ const StaffPortal = () => {
               placeholder="Search by name, age, ID, ward, bed, or access code..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+              className="w-full pl-12 pr-4 py-3 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
             />
           </div>
           <div className="flex gap-2">
@@ -359,15 +403,15 @@ const StaffPortal = () => {
               onClick={() => setShowAllPatients(!showAllPatients)}
               className={`px-4 py-3 rounded-xl transition-all duration-300 ${
                 showAllPatients 
-                  ? 'bg-teal-50 text-teal-600 border border-teal-200' 
-                  : 'bg-white/80 text-gray-600 border border-gray-200 hover:border-teal-300'
+                  ? 'bg-forest-50 text-forest-700 border border-forest-200' 
+                  : 'bg-white/80 text-gray-600 border border-gray-200 hover:border-forest-300'
               }`}
             >
               {showAllPatients ? 'Showing All' : 'Show All Patients'}
             </button>
             <button
               onClick={() => setShowAdmissionForm(true)}
-              className="px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.02] transition-all duration-300 flex items-center gap-2 whitespace-nowrap"
+              className="px-6 py-3 bg-gradient-to-r from-forest-700 to-forest-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-forest-500/30 hover:scale-[1.02] transition-all duration-300 flex items-center gap-2 whitespace-nowrap"
             >
               <UserPlus size={20} />
               Admit Patient
@@ -378,7 +422,7 @@ const StaffPortal = () => {
         <div className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl overflow-hidden shadow-sm">
           <div className="p-6 border-b border-gray-200/50 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-lg font-display font-semibold text-gray-900">
                 {showAllPatients ? 'All Patients' : 'Active Patients'}
               </h2>
               <p className="text-sm text-gray-500">
@@ -388,7 +432,7 @@ const StaffPortal = () => {
             {showAllPatients && (
               <button
                 onClick={() => setShowAllPatients(false)}
-                className="text-sm text-teal-600 hover:text-teal-700 transition-colors"
+                className="text-sm text-forest-700 hover:text-forest-800 transition-colors"
               >
                 Show Active Only
               </button>
@@ -415,7 +459,7 @@ const StaffPortal = () => {
                   <tr>
                     <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                       <div className="flex justify-center">
-                        <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 border-2 border-forest-500 border-t-transparent rounded-full animate-spin"></div>
                       </div>
                     </td>
                   </tr>
@@ -436,18 +480,18 @@ const StaffPortal = () => {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: index * 0.05 }}
-                      className="hover:bg-teal-50/30 transition-colors cursor-pointer"
+                      className="hover:bg-forest-50/30 transition-colors cursor-pointer"
                       onClick={() => navigate(`/staff/patient/${patient.id}`)}
                     >
                       <td className="px-6 py-4 text-sm text-gray-500">{index + 1}</td>
                       <td className="px-6 py-4">
-                        <code className="text-xs font-mono text-teal-600 bg-teal-50 px-2 py-1 rounded">
+                        <code className="text-xs font-mono text-forest-700 bg-forest-50 px-2 py-1 rounded">
                           {patient.patientId || 'N/A'}
                         </code>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-forest-500 to-forest-500 rounded-full flex items-center justify-center">
                             <span className="text-sm font-bold text-white">
                               {patient.name?.charAt(0).toUpperCase()}
                             </span>
@@ -464,7 +508,7 @@ const StaffPortal = () => {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{patient.familyMemberName}</td>
                       <td className="px-6 py-4">
-                        <code className="px-2 py-1 bg-gray-100 rounded-lg text-sm font-mono text-teal-600 border border-gray-200">
+                        <code className="px-2 py-1 bg-gray-100 rounded-lg text-sm font-mono text-forest-700 border border-gray-200">
                           {patient.accessCode}
                         </code>
                       </td>
@@ -475,8 +519,8 @@ const StaffPortal = () => {
                             Discharged
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-medium border border-emerald-200">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-forest-50 text-forest-700 rounded-full text-xs font-medium border border-forest-200">
+                            <span className="w-1.5 h-1.5 bg-forest-600 rounded-full animate-pulse"></span>
                             Active
                           </span>
                         )}
@@ -501,7 +545,7 @@ const StaffPortal = () => {
                                 e.stopPropagation();
                                 navigate(`/staff/bill-generator/${patient.id}`)
                               }}
-                              className="p-2 text-gray-400 hover:text-teal-500 hover:bg-teal-50 rounded-xl transition-all duration-200"
+                              className="p-2 text-gray-400 hover:text-forest-500 hover:bg-forest-50 rounded-xl transition-all duration-200"
                               title="Generate Bill"
                             >
                               <FileText size={18} />
@@ -541,7 +585,7 @@ const StaffPortal = () => {
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-white/95 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
             >
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Admit New Patient</h2>
+              <h2 className="text-2xl font-display font-semibold text-gray-900 mb-2">Admit New Patient</h2>
               <p className="text-gray-500 text-sm mb-6">Enter patient details to generate access code</p>
 
               <form onSubmit={handleAddPatient}>
@@ -552,7 +596,7 @@ const StaffPortal = () => {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="Full name"
                     />
                   </div>
@@ -563,7 +607,7 @@ const StaffPortal = () => {
                       type="number"
                       value={formData.age}
                       onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="Age"
                       min="0"
                       max="150"
@@ -575,7 +619,7 @@ const StaffPortal = () => {
                     <select
                       value={formData.gender}
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                     >
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
@@ -589,7 +633,7 @@ const StaffPortal = () => {
                       type="text"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="Contact number"
                     />
                   </div>
@@ -599,7 +643,7 @@ const StaffPortal = () => {
                     <textarea
                       value={formData.problem}
                       onChange={(e) => setFormData({ ...formData, problem: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="Describe the patient's condition"
                       rows="2"
                     />
@@ -611,7 +655,7 @@ const StaffPortal = () => {
                       type="text"
                       value={formData.familyMemberName}
                       onChange={(e) => setFormData({ ...formData, familyMemberName: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="Family member name"
                     />
                   </div>
@@ -622,7 +666,7 @@ const StaffPortal = () => {
                       type="text"
                       value={formData.ward}
                       onChange={(e) => setFormData({ ...formData, ward: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="e.g., ICU, General"
                     />
                   </div>
@@ -633,7 +677,7 @@ const StaffPortal = () => {
                       type="text"
                       value={formData.bed}
                       onChange={(e) => setFormData({ ...formData, bed: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="Bed number"
                     />
                   </div>
@@ -644,7 +688,7 @@ const StaffPortal = () => {
                       type="text"
                       value={formData.room}
                       onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="Room number"
                     />
                   </div>
@@ -655,7 +699,7 @@ const StaffPortal = () => {
                       type="text"
                       value={formData.abhaId}
                       onChange={(e) => setFormData({ ...formData, abhaId: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                       placeholder="ABHA ID if available"
                     />
                   </div>
@@ -666,8 +710,29 @@ const StaffPortal = () => {
                       type="date"
                       value={formData.admitDate}
                       onChange={(e) => setFormData({ ...formData, admitDate: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white/90 border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent transition-all duration-300"
                     />
+                  </div>
+
+                  <div className="md:col-span-2 flex flex-wrap gap-4 pt-1">
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.onVentilator}
+                        onChange={(e) => setFormData({ ...formData, onVentilator: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-forest-700 focus:ring-forest-500"
+                      />
+                      On Ventilator
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.onOxygenSupport}
+                        onChange={(e) => setFormData({ ...formData, onOxygenSupport: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-forest-700 focus:ring-forest-500"
+                      />
+                      On Oxygen Support
+                    </label>
                   </div>
                 </div>
 
@@ -679,18 +744,18 @@ const StaffPortal = () => {
                 )}
 
                 {formSuccess && (
-                  <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <div className="mt-4 p-4 bg-forest-50 border border-forest-200 rounded-xl">
                     <div className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-emerald-500 mt-0.5" />
+                      <CheckCircle className="w-5 h-5 text-forest-600 mt-0.5" />
                       <div>
-                        <p className="text-emerald-700 text-sm font-medium">{formSuccess}</p>
-                        <p className="text-emerald-600 text-sm mt-1">
-                          Patient ID: <code className="px-2 py-1 bg-emerald-100 rounded-lg font-mono text-emerald-700 border border-emerald-200">{patientId}</code>
+                        <p className="text-forest-800 text-sm font-medium">{formSuccess}</p>
+                        <p className="text-forest-700 text-sm mt-1">
+                          Patient ID: <code className="px-2 py-1 bg-forest-100 rounded-lg font-mono text-forest-800 border border-forest-200">{patientId}</code>
                         </p>
-                        <p className="text-emerald-600 text-sm mt-1">
-                          Access Code: <code className="px-2 py-1 bg-emerald-100 rounded-lg font-mono text-emerald-700 border border-emerald-200">{generatedCode}</code>
+                        <p className="text-forest-700 text-sm mt-1">
+                          Access Code: <code className="px-2 py-1 bg-forest-100 rounded-lg font-mono text-forest-800 border border-forest-200">{generatedCode}</code>
                         </p>
-                        <p className="text-xs text-emerald-500 mt-1">Share these with the family for access</p>
+                        <p className="text-xs text-forest-600 mt-1">Share these with the family for access</p>
                       </div>
                     </div>
                   </div>
@@ -711,7 +776,7 @@ const StaffPortal = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-600 to-emerald-500 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-teal-500/30 hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2"
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-forest-700 to-forest-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-forest-500/30 hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2"
                   >
                     <UserPlus size={20} />
                     Admit Patient
@@ -741,7 +806,7 @@ const StaffPortal = () => {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <span className="text-lg font-bold text-gray-900">AarogyaSandesh</span>
+                <Wordmark size="sm" stacked={false} className="text-gray-900" hiClassName="text-forest-700" />
               </div>
               <p className="text-sm text-gray-500">A Health Update, Delivered</p>
               <p className="text-xs text-gray-400 mt-2">Real-time hospital-to-family transparency platform</p>
@@ -750,20 +815,20 @@ const StaffPortal = () => {
             <div>
               <h4 className="font-semibold text-gray-900 mb-3">Quick Links</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => { setShowAllPatients(false); setActiveTab('active'); }} className="text-gray-500 hover:text-teal-600 transition-colors">Dashboard</button></li>
-                <li><button onClick={() => { setShowAllPatients(true); setActiveTab('all'); }} className="text-gray-500 hover:text-teal-600 transition-colors">All Patients</button></li>
-                <li><button onClick={() => navigate('/staff')} className="text-gray-500 hover:text-teal-600 transition-colors">Active Patients</button></li>
-                <li><button onClick={() => navigate('/staff')} className="text-gray-500 hover:text-teal-600 transition-colors">Reports</button></li>
+                <li><button onClick={() => { setShowAllPatients(false); setActiveTab('active'); }} className="text-gray-500 hover:text-forest-700 transition-colors">Dashboard</button></li>
+                <li><button onClick={() => { setShowAllPatients(true); setActiveTab('all'); }} className="text-gray-500 hover:text-forest-700 transition-colors">All Patients</button></li>
+                <li><button onClick={() => navigate('/staff')} className="text-gray-500 hover:text-forest-700 transition-colors">Active Patients</button></li>
+                <li><button onClick={() => navigate('/staff')} className="text-gray-500 hover:text-forest-700 transition-colors">Reports</button></li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-semibold text-gray-900 mb-3">Support</h4>
               <ul className="space-y-2 text-sm">
-                <li><button onClick={() => window.open('mailto:aarogyasandesh.support@gmail.com')} className="text-gray-500 hover:text-teal-600 transition-colors">Help Center</button></li>
-                <li><button onClick={() => window.open('mailto:aarogyasandesh.support@gmail.com')} className="text-gray-500 hover:text-teal-600 transition-colors">Contact Us</button></li>
-                <li><Link to="/privacy-policy" className="text-gray-500 hover:text-teal-600 transition-colors">Privacy Policy</Link></li>
-                <li><Link to="/terms-of-service" className="text-gray-500 hover:text-teal-600 transition-colors">Terms of Service</Link></li>
+                <li><button onClick={() => window.open('mailto:aarogyasandesh.support@gmail.com')} className="text-gray-500 hover:text-forest-700 transition-colors">Help Center</button></li>
+                <li><button onClick={() => window.open('mailto:aarogyasandesh.support@gmail.com')} className="text-gray-500 hover:text-forest-700 transition-colors">Contact Us</button></li>
+                <li><Link to="/privacy-policy" className="text-gray-500 hover:text-forest-700 transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms-of-service" className="text-gray-500 hover:text-forest-700 transition-colors">Terms of Service</Link></li>
               </ul>
             </div>
 
@@ -771,7 +836,7 @@ const StaffPortal = () => {
               <h4 className="font-semibold text-gray-900 mb-3">Contact</h4>
               <ul className="space-y-2 text-sm text-gray-500">
                 <li className="flex items-center gap-2">📧 aarogyasandesh.support@gmail.com</li>
-                <li className="flex items-center gap-2">📞 +91 1800-123-4567</li>
+                <li className="flex items-center gap-2">📞 +91 8977039397</li>
                 <li className="flex items-center gap-2">🏥 Made in India</li>
               </ul>
             </div>
