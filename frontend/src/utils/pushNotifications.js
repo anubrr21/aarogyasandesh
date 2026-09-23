@@ -26,8 +26,9 @@ export async function enablePushNotifications() {
       return { success: false, error: 'Notification permission was not granted.' }
     }
 
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration })
+    await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    const readyRegistration = await navigator.serviceWorker.ready
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: readyRegistration })
 
     if (!token) {
       return { success: false, error: 'Could not get a notification token. Please try again.' }
