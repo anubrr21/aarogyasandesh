@@ -1,12 +1,20 @@
 import express from 'express'
-import admin from '../config/firebase-admin.js'
+import admin, { serviceAccount } from '../config/firebase-admin.js'
 import { VertexAI } from '@google-cloud/vertexai'
 
 const router = express.Router()
 
 const vertexAI = new VertexAI({
   project: process.env.FIREBASE_PROJECT_ID,
-  location: 'us-central1'
+  location: 'us-central1',
+  googleAuthOptions: serviceAccount?.private_key
+    ? {
+        credentials: {
+          client_email: serviceAccount.client_email,
+          private_key: serviceAccount.private_key
+        }
+      }
+    : undefined
 })
 
 const model = vertexAI.getGenerativeModel({

@@ -6,6 +6,7 @@ import { auth, googleProvider, signInWithPopup } from '../../firebase/firebase'
 import { useAuth } from '../../context/AuthContext'
 import { Eye, EyeOff, Key, AlertCircle, Shield, Heart, Mail, Lock, ArrowRight, Check, Stethoscope } from 'lucide-react'
 import Wordmark from '../common/Wordmark'
+import Logo from '../../assets/Logo.png'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -247,7 +248,7 @@ navigate(redirectPath, { replace: true });
           <div className="relative z-10">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-11 h-11 rounded-lg bg-parchment-100 border border-forest-900/10 flex items-center justify-center p-2">
-              <img src="/src/assets/Logo.png" alt="AarogyaSandesh" className="w-full h-full object-contain" />
+              <img src={Logo} alt="AarogyaSandesh" className="w-full h-full object-contain" />
             </div>
             <Wordmark size="md" className="text-forest-950" hiClassName="text-forest-700" />
           </div>
@@ -486,7 +487,7 @@ navigate(redirectPath, { replace: true });
           <div className="relative z-10 text-center">
             <div className="w-24 h-24 lg:w-28 lg:h-28 mx-auto mb-6 bg-white rounded-2xl shadow-xl flex items-center justify-center p-3">
               <img
-                src="/src/assets/Logo.png"
+                src={Logo}
                 alt="AarogyaSandesh"
                 className="w-full h-full object-contain"
               />

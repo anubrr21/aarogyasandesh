@@ -1,6 +1,7 @@
 
 import 'dotenv/config';
 
+import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -27,8 +28,15 @@ const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()) : [])
+];
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: allowedOrigins,
   credentials: true
 }));
 
@@ -55,10 +63,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  warmDataCaches(PORT);
-});
+const isDirectRun = process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url);
+if (isDirectRun) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    warmDataCaches(PORT);
+  });
+}
+
+export default app;
 
 function warmDataCaches(port) {
   const endpoints = [

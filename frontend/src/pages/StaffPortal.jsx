@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import Logo from '../assets/Logo.png';
 import { usePatients } from '../context/PatientContext';
 import NotificationBell from '../components/common/NotificationBell'
 import Wordmark from '../components/common/Wordmark'
@@ -219,7 +220,7 @@ const StaffPortal = () => {
               <button onClick={() => navigate('/staff')} className="flex items-center gap-2 group">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20">
                   <img 
-                    src="/src/assets/Logo.png" 
+                    src={Logo}
                     alt="AarogyaSandesh Logo" 
                     className="w-full h-full object-contain"
                   />
@@ -801,7 +802,7 @@ const StaffPortal = () => {
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center">
                   <img 
-                    src="/src/assets/Logo.png" 
+                    src={Logo}
                     alt="AarogyaSandesh Logo" 
                     className="w-full h-full object-contain"
                   />

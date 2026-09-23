@@ -90,7 +90,7 @@ router.post('/register', async (req, res) => {
     }
 
     const actionCodeSettings = {
-      url: 'http://localhost:5173/login',
+      url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`,
       handleCodeInApp: true
     };
 
@@ -131,7 +131,7 @@ router.post('/send-verification-email', async (req, res) => {
     }
 
     const actionCodeSettings = {
-      url: 'http://localhost:5173/login',
+      url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`,
       handleCodeInApp: true
     };
 
@@ -308,7 +308,7 @@ router.post('/google-register', async (req, res) => {
       // through the exact same "check your email" verification step as password registration.
       await admin.auth().updateUser(uid, { emailVerified: false })
 
-      const actionCodeSettings = { url: 'http://localhost:5173/login', handleCodeInApp: true }
+      const actionCodeSettings = { url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`, handleCodeInApp: true }
       const verificationLink = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings)
       await sendVerificationEmail(email, displayName, 'staff', verificationLink)
 
@@ -362,7 +362,7 @@ router.post('/google-register', async (req, res) => {
     await admin.auth().updateUser(uid, { emailVerified: false })
 
     const actionCodeSettings = {
-      url: 'http://localhost:5173/login',
+      url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`,
       handleCodeInApp: true
     }
     const verificationLink = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings)

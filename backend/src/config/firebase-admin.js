@@ -38,4 +38,5 @@ if (!admin.apps || admin.apps.length === 0) {
   }
 }
 
+export { serviceAccount };
 export default admin;

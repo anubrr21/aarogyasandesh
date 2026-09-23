@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import Wordmark from '../common/Wordmark';
+import Logo from '../../assets/Logo.png';
 
 const IntroAnimation = () => {
   const [isVisible, setIsVisible] = useState(true);
@@ -152,7 +153,7 @@ const IntroAnimation = () => {
                 }}
               />
               <img 
-                src="/src/assets/Logo.png" 
+                src={Logo}
                 alt="AarogyaSandesh Logo" 
                 className="w-40 h-40 object-contain relative z-10"
               />

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { db } from '../firebase/firebase';
+import Logo from '../assets/Logo.png';
 import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { 
   LogOut, 
@@ -159,7 +160,7 @@ const [patientVisitingTimes, setPatientVisitingTimes] = useState([]);
               <button onClick={() => navigate('/doctor')} className="flex items-center gap-3 group">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20">
                   <img
-                    src="/src/assets/Logo.png"
+                    src={Logo}
                     alt="AarogyaSandesh Logo"
                     className="w-full h-full object-contain"
                   />

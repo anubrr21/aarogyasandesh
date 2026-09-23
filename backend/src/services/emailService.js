@@ -290,8 +290,8 @@ export const sendVerificationEmail = async (email, displayName, role, verificati
             <div class="brand">AarogyaSandesh</div>
             <p>Bringing healthcare closer to you.</p>
             <div class="links">
-              <a href="http://localhost:5173/login">Login</a>
-              <a href="http://localhost:5173/register">Register</a>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login">Login</a>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/register">Register</a>
               <a href="mailto:aarogyasandesh.support@gmail.com">Support</a>
             </div>
             <p class="disclaimer">© ${year} AarogyaSandesh. All rights reserved.<br>You received this email because you registered on AarogyaSandesh.</p>
@@ -436,8 +436,8 @@ export const sendPasswordResetEmail = async (email, displayName, resetLink) => {
             <div class="brand">AarogyaSandesh</div>
             <p>Bringing healthcare closer to you.</p>
             <div class="links">
-              <a href="http://localhost:5173/login">Login</a>
-              <a href="http://localhost:5173/register">Register</a>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login">Login</a>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/register">Register</a>
               <a href="mailto:aarogyasandesh.support@gmail.com">Support</a>
             </div>
             <p class="disclaimer">© ${year} AarogyaSandesh. All rights reserved.<br>You received this email because you requested a password reset.</p>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import Logo from '../assets/Logo.png';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -949,7 +950,7 @@ const FamilyPortal = () => {
               <button onClick={() => navigate('/family')} className="flex items-center gap-3 group">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-forest-500/20 group-hover:shadow-forest-500/40 transition-all duration-300">
                   <img 
-                    src="/src/assets/Logo.png" 
+                    src={Logo}
                     alt="AarogyaSandesh Logo" 
                     className="w-full h-full object-contain"
                   />
@@ -2434,7 +2435,7 @@ const relevantVisitingTimes = patientVisitingTimes.length > 0
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center">
                   <img 
-                    src="/src/assets/Logo.png" 
+                    src={Logo}
                     alt="AarogyaSandesh Logo" 
                     className="w-full h-full object-contain"
                   />
