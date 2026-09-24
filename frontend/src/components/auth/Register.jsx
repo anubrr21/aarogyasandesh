@@ -592,7 +592,7 @@ const Register = () => {
           <div className="absolute top-8 right-8 w-10 h-10 border-t border-r border-brass-300/25" />
           <div className="absolute bottom-8 left-8 w-10 h-10 border-b border-l border-brass-300/25" />
 
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 lg:left-8 lg:translate-x-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-full border border-brass-300/20 text-brass-100 text-xs font-medium">
+          <div className="hidden lg:flex absolute top-6 left-8 items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-full border border-brass-300/20 text-brass-100 text-xs font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-brass-300" />
             Trusted Healthcare Platform
           </div>
