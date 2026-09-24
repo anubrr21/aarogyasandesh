@@ -1,15 +1,15 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { getItemStatus, computeCategoryBreakdown, getInvoiceNumber } from './billingHelpers';
+import {
+  COLORS, amountInWords, drawCategoryBar, drawDocTitle, drawHeader, drawInfoGrid, drawLedger,
+  drawMetaStrip, drawNoteBox, drawSectionTitle, drawSignatureBlock, drawTotalsBlock,
+  ensureSpace, finalizeDocument, formatDateShort, formatDateTimeLong, formatRs, styledTable,
+} from './pdfBranding';
+import { drawAuthentication, drawGlance, drawInsights } from './pdfBillingExtras';
+import { doctorFields, openPrintWindow, resolveAttendingDoctor, showPdfForPrint } from './pdfContext';
 
-const HOSPITAL_NAME = 'AarogyaSandesh Super Speciality Hospital';
-const HOSPITAL_ADDRESS = '123, Healthcare District, New Delhi - 110001';
-const HOSPITAL_PHONE = '+91 8977039397';
-const HOSPITAL_EMAIL = 'info@aarogyasandesh.com';
-const FOREST = [57, 100, 71];
-const BRASS = [184, 134, 58];
-
-function buildInvoiceDoc({ patient, billingData, totalBill, totalDeposits, balance }) {
+async function buildInvoiceDoc({ patient, billingData, totalBill, totalDeposits, balance }) {
+  const doctor = await resolveAttendingDoctor(patient);
   const items = billingData?.items || [];
   const deposits = billingData?.deposits || [];
   const invoiceNumber = getInvoiceNumber(billingData, patient?.patientId || patient?.id);
@@ -17,169 +17,168 @@ function buildInvoiceDoc({ patient, billingData, totalBill, totalDeposits, balan
 
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.width;
-  let y = 18;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.setTextColor(...FOREST);
-  doc.text('Aarogya Sandesh', pageWidth / 2, y, { align: 'center' });
-  y += 7;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(HOSPITAL_ADDRESS, pageWidth / 2, y, { align: 'center' });
-  y += 4;
-  doc.text(`Phone: ${HOSPITAL_PHONE}  |  Email: ${HOSPITAL_EMAIL}`, pageWidth / 2, y, { align: 'center' });
-  y += 8;
-
-  doc.setDrawColor(...BRASS);
-  doc.setLineWidth(0.4);
-  doc.line(20, y, pageWidth - 20, y);
-  y += 8;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(0, 0, 0);
-  doc.text('MEDICAL INVOICE', 20, y);
-  doc.setFontSize(10);
-  doc.setTextColor(...FOREST);
-  doc.text(`Invoice #: ${invoiceNumber}`, pageWidth - 20, y, { align: 'right' });
-  y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}`, pageWidth - 20, y, { align: 'right' });
-  y += 8;
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.text('Patient Details', 20, y);
-  y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(60, 60, 60);
-  const details = [
-    [`Name: ${patient?.name || 'N/A'}`, `Patient ID: ${patient?.patientId || 'N/A'}`],
-    [`Age / Gender: ${patient?.age || 'N/A'} / ${patient?.gender || 'N/A'}`, `Ward / Bed: ${patient?.ward || 'N/A'} / ${patient?.bed || 'N/A'}`],
-    [`Admit Date: ${patient?.admitDate ? new Date(patient.admitDate).toLocaleDateString('en-IN') : 'N/A'}`, `Family Member: ${patient?.familyMemberName || 'N/A'}`],
-  ];
-  details.forEach(([left, right]) => {
-    doc.text(left, 20, y);
-    doc.text(right, 110, y);
-    y += 5;
+  const patientKey = patient?.patientId || patient?.id;
+  drawHeader(doc, {
+    docRef: invoiceNumber,
+    qrText: `AAROGYASANDESH|INVOICE|${invoiceNumber}|${patientKey || 'NA'}|${totalBill}|${new Date().toISOString().slice(0, 10)}`,
   });
-  y += 3;
 
-  const tableRows = items.map((item) => [
-    item.description || '-',
-    item.category || 'Other',
-    getItemStatus(item) === 'paid' ? 'Paid' : 'Unpaid',
-    `Rs. ${(parseFloat(item.amount) || 0).toLocaleString('en-IN')}`,
-  ]);
+  let y = drawDocTitle(doc, 53, {
+    title: 'MEDICAL INVOICE',
+    tag: 'ORIGINAL FOR RECIPIENT',
+    right1: `Invoice #: ${invoiceNumber}`,
+    right2: `Date: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}`,
+  });
 
-  autoTable(doc, {
+  const allItemsPaid = items.length > 0 && items.every((item) => getItemStatus(item) === 'paid');
+  let paymentStatus = 'Payment due';
+  if (totalBill === 0) paymentStatus = 'No charges';
+  else if (allItemsPaid) paymentStatus = 'Paid in full';
+  else if (totalDeposits >= totalBill) paymentStatus = 'Covered by deposits';
+  else if (totalDeposits > 0) paymentStatus = 'Partially covered';
+
+  const statusColor = balance < 0 ? COLORS.DANGER : COLORS.SUCCESS;
+  y = drawMetaStrip(doc, y, [
+    { label: 'Invoice No.', value: invoiceNumber, weight: 1.5 },
+    { label: 'Issued On', value: formatDateTimeLong(), weight: 1.3 },
+    { label: 'Items Billed', value: `${items.length} item${items.length === 1 ? '' : 's'}` },
+    { label: 'Payment Status', value: paymentStatus, weight: 1.2, color: totalBill === 0 ? COLORS.INK : statusColor },
+  ]) + 7;
+
+  y = drawGlance(doc, y, { items, totalBill, totalDeposits }) + 8;
+
+  const admit = patient?.admitDate ? new Date(patient.admitDate) : null;
+  const dischargeAt = patient?.discharge?.actualTime ? new Date(patient.discharge.actualTime) : null;
+  const stayDays = admit && !Number.isNaN(admit.getTime())
+    ? Math.max(1, Math.ceil(((dischargeAt || new Date()) - admit) / 86400000))
+    : null;
+
+  y = drawSectionTitle(doc, y, 'Patient Details');
+  y = drawInfoGrid(doc, y, [
+    { label: 'Patient Name', value: patient?.name || 'N/A' },
+    { label: 'Patient ID', value: patient?.patientId || 'N/A' },
+    { label: 'Age / Gender', value: `${patient?.age || 'N/A'} / ${patient?.gender || 'N/A'}` },
+    { label: 'Phone', value: patient?.phone || 'N/A' },
+    { label: 'Ward / Bed', value: `${patient?.ward || 'N/A'} / ${patient?.bed || 'N/A'}` },
+    { label: 'Room', value: patient?.room || 'N/A' },
+    { label: 'ABHA ID', value: patient?.abhaId || 'N/A' },
+    { label: 'Family Member', value: patient?.familyMemberName || 'N/A' },
+    { label: 'Admit Date', value: patient?.admitDate ? formatDateShort(patient.admitDate) : 'N/A' },
+    { label: 'Discharge Date', value: dischargeAt ? formatDateShort(dischargeAt) : 'N/A' },
+    { label: 'Length of Stay', value: stayDays ? `${stayDays} day${stayDays === 1 ? '' : 's'}` : 'N/A' },
+    { label: 'Status', value: dischargeAt ? 'Discharged' : 'Admitted' },
+    ...doctorFields(doctor).slice(0, 2),
+  ], 4) + 7;
+
+  y = drawSectionTitle(doc, y, 'Bill Items');
+  y = styledTable(doc, {
     startY: y,
-    head: [['Description', 'Category', 'Status', 'Amount']],
-    body: tableRows.length ? tableRows : [['No bill items recorded', '-', '-', 'Rs. 0']],
-    theme: 'grid',
-    headStyles: { fillColor: FOREST, textColor: 255, fontStyle: 'bold', fontSize: 9 },
-    bodyStyles: { fontSize: 8.5, textColor: [40, 40, 40] },
-    columnStyles: { 3: { halign: 'right' } },
-    margin: { left: 20, right: 20 },
-  });
-
-  y = doc.lastAutoTable.finalY + 6;
+    head: ['Description', 'Category', 'Status', 'Amount'],
+    body: items.length
+      ? items.map((item) => [
+        item.description || '-',
+        item.category || 'Other',
+        getItemStatus(item) === 'paid' ? 'Paid' : 'Unpaid',
+        formatRs(parseFloat(item.amount) || 0),
+      ])
+      : [['No bill items recorded', '-', '-', 'Rs. 0']],
+    rightCols: [3],
+    columnStyles: { 0: { cellWidth: 74 } },
+  }) + 7;
 
   if (breakdown.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Spend by Category', 20, y);
-    y += 5;
-    autoTable(doc, {
-      startY: y,
-      head: [['Category', 'Amount', '% of Bill']],
-      body: breakdown.map((b) => [b.category, `Rs. ${b.amount.toLocaleString('en-IN')}`, `${b.percent.toFixed(1)}%`]),
-      theme: 'striped',
-      headStyles: { fillColor: BRASS, textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
-      bodyStyles: { fontSize: 8, textColor: [60, 60, 60] },
-      margin: { left: 20, right: 20 },
-      tableWidth: 100,
-    });
-    y = doc.lastAutoTable.finalY + 8;
+    y = drawSectionTitle(doc, y, 'Spend by Category');
+    y = drawCategoryBar(doc, y, breakdown);
+    y = styledTable(doc, {
+      startY: y + 1,
+      head: ['Category', 'Amount', '% of Bill'],
+      body: breakdown.map((b) => [b.category, formatRs(b.amount), `${b.percent.toFixed(1)}%`]),
+      headFill: COLORS.BRASS,
+      rightCols: [1, 2],
+      tableWidth: 110,
+    }) + 7;
   }
 
   if (deposits.length > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Deposits Received', 20, y);
-    y += 5;
-    autoTable(doc, {
+    y = drawSectionTitle(doc, y, 'Deposits Received');
+    y = styledTable(doc, {
       startY: y,
-      head: [['Reason', 'Urgency', 'Date', 'Amount']],
+      head: ['Reason', 'Urgency', 'Date', 'Amount'],
       body: deposits.map((d) => [
         d.reason || '-',
         d.urgency || 'routine',
         d.depositedAt ? new Date(d.depositedAt).toLocaleDateString('en-IN') : '-',
-        `Rs. ${(parseFloat(d.amount) || 0).toLocaleString('en-IN')}`,
+        formatRs(parseFloat(d.amount) || 0),
       ]),
-      theme: 'grid',
-      headStyles: { fillColor: [120, 120, 120], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
-      bodyStyles: { fontSize: 8, textColor: [60, 60, 60] },
-      columnStyles: { 3: { halign: 'right' } },
-      margin: { left: 20, right: 20 },
-    });
-    y = doc.lastAutoTable.finalY + 8;
+      headFill: [96, 104, 100],
+      rightCols: [3],
+    }) + 7;
   }
 
-  if (y > 250) {
-    doc.addPage();
-    y = 20;
+  if (items.length + deposits.length > 0) {
+    y = drawSectionTitle(doc, y, 'Account Ledger');
+    y = drawLedger(doc, y, { items, deposits }) + 7;
   }
 
-  doc.setDrawColor(200, 200, 200);
-  doc.line(20, y, pageWidth - 20, y);
-  y += 7;
+  y = ensureSpace(doc, y, 44);
+  const due = balance < 0;
+  y = drawTotalsBlock(doc, y, {
+    rows: [
+      { label: 'Subtotal', value: formatRs(totalBill) },
+      { label: 'Deposits Paid', value: `- ${formatRs(totalDeposits)}`, tone: COLORS.SUCCESS },
+    ],
+    balanceLabel: due ? 'Balance Due' : 'Refund Due',
+    balanceValue: formatRs(Math.abs(balance)),
+    due,
+    words: amountInWords(Math.abs(balance)),
+    statusText: paymentStatus,
+  }) + 8;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(60, 60, 60);
-  doc.text('Subtotal', 130, y);
-  doc.text(`Rs. ${totalBill.toLocaleString('en-IN')}`, pageWidth - 20, y, { align: 'right' });
-  y += 6;
-  doc.text('Deposits Paid', 130, y);
-  doc.text(`- Rs. ${totalDeposits.toLocaleString('en-IN')}`, pageWidth - 20, y, { align: 'right' });
-  y += 7;
+  y = drawInsights(doc, y, { items, totalBill, stayDays }) + 5;
 
-  doc.setDrawColor(...FOREST);
-  doc.line(125, y - 4, pageWidth - 20, y - 4);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(...(balance >= 0 ? FOREST : [190, 60, 60]));
-  doc.text(balance >= 0 ? 'Refund Due' : 'Balance Due', 130, y);
-  doc.text(`Rs. ${Math.abs(balance).toLocaleString('en-IN')}`, pageWidth - 20, y, { align: 'right' });
-  y += 12;
+  y = drawNoteBox(doc, y, 'Terms & Notes', [
+    'All amounts are in Indian Rupees (INR). Deposits received are adjusted against the total billed amount.',
+    'Please retain this invoice for insurance claims, reimbursements and future reference.',
+  ]) + 4;
 
+  y = ensureSpace(doc, y, 86);
+  y = drawAuthentication(doc, y, { kind: 'Medical Invoice', docRef: invoiceNumber, patientName: patient?.name, patientId: patient?.patientId }) + 6;
+
+  let stamp = null;
+  const stampDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+  if (totalBill > 0) {
+    if (balance >= 0) stamp = { text: 'PAID', sub: stampDate, color: COLORS.SUCCESS };
+    else if (totalDeposits > 0) stamp = { text: 'PART PAID', sub: stampDate, color: COLORS.BRASS };
+    else stamp = { text: 'PAYMENT DUE', sub: stampDate, color: COLORS.DANGER };
+  }
+
+  y = drawSignatureBlock(doc, y, [
+    { title: 'Billing Executive', hint: 'Name & signature' },
+    { title: 'Patient / Attendant', hint: 'Name & signature' },
+    { title: 'Authorised Signatory', hint: 'For AarogyaSandesh' },
+  ], { seal: true, stamp }) + 1;
+
+  y = ensureSpace(doc, y, 0);
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(8);
   doc.setTextColor(140, 140, 140);
   doc.text('This is a system-generated invoice from AarogyaSandesh. For queries, contact the hospital billing desk.', pageWidth / 2, y, { align: 'center' });
 
+  finalizeDocument(doc, { docRef: invoiceNumber, subject: `Medical Invoice  |  ${patient?.name || 'Patient'}` });
+
   return { doc, invoiceNumber };
 }
 
-export function downloadInvoicePDF(params) {
-  const { doc, invoiceNumber } = buildInvoiceDoc(params);
+export async function downloadInvoicePDF(params) {
+  const { doc, invoiceNumber } = await buildInvoiceDoc(params);
   doc.save(`${invoiceNumber}.pdf`);
   return invoiceNumber;
 }
 
-export function printInvoicePDF(params) {
-  const { doc, invoiceNumber } = buildInvoiceDoc(params);
-  doc.autoPrint();
-  window.open(doc.output('bloburl'), '_blank');
+export async function printInvoicePDF(params) {
+  const printWindow = openPrintWindow();
+  const { doc, invoiceNumber } = await buildInvoiceDoc(params);
+  showPdfForPrint(doc, printWindow);
   return invoiceNumber;
 }
