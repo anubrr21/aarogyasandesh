@@ -142,16 +142,6 @@ navigate(redirectPath, { replace: true });
     setLoading(true);
 
     try {
-      let verification = null;
-      if (role === 'family') {
-        verification = await verifyAccessCodeAPI(accessCode);
-        if (!verification.valid) {
-          setError(verification.message || 'Invalid access code');
-          setLoading(false);
-          return;
-        }
-      }
-
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
 
@@ -169,6 +159,17 @@ navigate(redirectPath, { replace: true });
         setError(`This account is registered as "${actualRole || 'unknown'}", not "${role}". Please select the correct portal.`);
         setLoading(false);
         return;
+      }
+
+      let verification = null;
+      if (role === 'family') {
+        verification = await verifyAccessCodeAPI(accessCode);
+        if (!verification.valid) {
+          await auth.signOut();
+          setError(verification.message || 'Invalid access code');
+          setLoading(false);
+          return;
+        }
       }
 
       localStorage.setItem('userRole', role);

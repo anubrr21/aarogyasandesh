@@ -5,6 +5,23 @@ import admin from '../config/firebase-admin.js'
 const router = express.Router()
 const db = admin.firestore()
 
+// Visiting hours are configured and displayed in IST (the hospital's timezone), but the
+// server process itself may run in UTC (e.g. Vercel), where Date.setHours() would silently
+// operate on the wrong timezone. These helpers pin all "today" / hour math to IST regardless
+// of the server's own local timezone.
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+
+function istNow() {
+  return new Date(Date.now() + IST_OFFSET_MS)
+}
+
+function istTodayToUTCDate(hh, mm) {
+  const istDateStr = istNow().toISOString().slice(0, 10)
+  const paddedH = String(hh).padStart(2, '0')
+  const paddedM = String(mm).padStart(2, '0')
+  return new Date(Date.parse(`${istDateStr}T${paddedH}:${paddedM}:00.000Z`) - IST_OFFSET_MS)
+}
+
 function parseTimeToday(timeStr) {
   const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
   if (!match) return null
@@ -13,17 +30,13 @@ function parseTimeToday(timeStr) {
   mm = parseInt(mm, 10)
   if (/pm/i.test(ampm) && hh !== 12) hh += 12
   if (/am/i.test(ampm) && hh === 12) hh = 0
-  const d = new Date()
-  d.setHours(hh, mm, 0, 0)
-  return d
+  return istTodayToUTCDate(hh, mm)
 }
 
 function getVisitingWindows(visitingHoursStr) {
   if (!visitingHoursStr) return []
   if (/24\s*\/\s*7/i.test(visitingHoursStr)) {
-    const start = new Date(); start.setHours(0, 0, 0, 0)
-    const end = new Date(); end.setHours(23, 59, 59, 999)
-    return [{ start, end }]
+    return [{ start: istTodayToUTCDate(0, 0), end: istTodayToUTCDate(23, 59) }]
   }
   return visitingHoursStr.split(',').map(range => {
     const [startStr, endStr] = range.split('-').map(s => s.trim())
@@ -35,7 +48,7 @@ function getVisitingWindows(visitingHoursStr) {
 
 function isDayAllowed(visitingDaysStr) {
   if (!visitingDaysStr || /all\s*days/i.test(visitingDaysStr)) return true
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+  const today = istNow().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
   return visitingDaysStr.toLowerCase().includes(today.toLowerCase())
 }
 
