@@ -77,6 +77,7 @@ import { getItemStatus, computePaymentTotals, getInvoiceNumber, BILL_CATEGORIES 
 import { downloadInvoicePDF, printInvoicePDF } from '../utils/generateInvoicePDF';
 import VitalsTrendSummary from '../components/discharge/VitalsTrendSummary';
 import DischargeSummaryView from '../components/discharge/DischargeSummaryView';
+import FamilySummaryPanel from '../components/discharge/FamilySummaryPanel';
 
 const PatientDetail = () => {
   const { id } = useParams();
@@ -2277,6 +2278,8 @@ const PatientDetail = () => {
                     </h4>
                     <DischargeSummaryView dischargeSummary={dischargeData.dischargeSummary} patient={patient} />
                   </div>
+
+                  <FamilySummaryPanel patient={patient} dischargeSummary={dischargeData.dischargeSummary} role="staff" />
                 </div>
               ) : (
                 <>

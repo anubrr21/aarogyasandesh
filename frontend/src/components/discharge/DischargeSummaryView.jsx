@@ -1,5 +1,7 @@
-import { FileText, Pill, Activity, CreditCard, StickyNote, ClipboardList, CalendarClock, Download, Printer } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Pill, Activity, CreditCard, StickyNote, ClipboardList, CalendarClock, Download, Printer, Sparkles } from 'lucide-react';
 import VitalsTrendSummary from './VitalsTrendSummary';
+import { MedicineTimetableView, VitalsCharts } from '../common/MiniCharts';
 import { downloadDischargeSummaryPDF, printDischargeSummaryPDF } from '../../utils/generateDischargeSummaryPDF';
 
 const Section = ({ icon: Icon, title, children }) => (
@@ -11,6 +13,27 @@ const Section = ({ icon: Icon, title, children }) => (
     {children}
   </div>
 );
+
+const FamilySummaryBlock = ({ familySummary }) => {
+  const [language, setLanguage] = useState('english');
+  return (
+    <Section icon={Sparkles} title="In Simple Words">
+      <div className="flex gap-2 mb-2">
+        {[['english', 'English'], ['hindi', 'हिन्दी']].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setLanguage(key)}
+            className={`px-3 py-1 rounded-lg text-xs border transition-colors ${language === key ? 'bg-forest-600 text-white border-forest-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="text-sm text-gray-800 whitespace-pre-line bg-white/70 border border-gray-200/60 rounded-lg p-3">{familySummary[language]}</p>
+      <p className="text-[11px] text-gray-400 mt-1.5">Drafted from your hospital records and reviewed by the hospital team. It does not replace medical advice from your doctor.</p>
+    </Section>
+  );
+};
 
 const DischargeSummaryView = ({ dischargeSummary, patient, showActions = true, className = '' }) => {
   if (!dischargeSummary) {
@@ -94,12 +117,19 @@ const DischargeSummaryView = ({ dischargeSummary, patient, showActions = true, c
               </div>
             ))}
           </div>
+          <div className="mt-3">
+            <p className="text-xs font-semibold tracking-wider text-gray-500 mb-2">MEDICINE TIMETABLE</p>
+            <MedicineTimetableView medicines={medicines} />
+          </div>
         </Section>
       )}
 
       {vitals.length > 0 && (
         <Section icon={Activity} title="Vitals Trend">
           <VitalsTrendSummary vitals={vitals} />
+          <div className="mt-3">
+            <VitalsCharts vitals={vitals} />
+          </div>
         </Section>
       )}
 
@@ -132,6 +162,10 @@ const DischargeSummaryView = ({ dischargeSummary, patient, showActions = true, c
         <Section icon={ClipboardList} title="Discharge Instructions">
           <p className="text-sm text-gray-700 whitespace-pre-line">{instructions}</p>
         </Section>
+      )}
+
+      {patient?.discharge?.familySummary?.english && (
+        <FamilySummaryBlock familySummary={patient.discharge.familySummary} />
       )}
 
       {followUpDate && (

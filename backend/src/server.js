@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { authLimiter, ocrLimiter } from './middleware/rateLimiters.js';
+import { authLimiter, ocrLimiter, verifyLimiter } from './middleware/rateLimiters.js';
 import authRoutes from './routes/auth.js';
 import patientRoutes from './routes/patients.js';
 import consentRoutes from './routes/consent.js';
@@ -21,6 +21,7 @@ import visitingPassRoutes from './routes/visitingPass.routes.js'
 import medicalReferenceRoutes from './routes/medicalReference.js'
 import indiaOpenDataRoutes from './routes/indiaOpenData.js'
 import hospitalDirectoryRoutes from './routes/hospitalDirectory.js'
+import documentRoutes from './routes/documents.js'
 
 
 const app = express();
@@ -57,6 +58,7 @@ app.use('/api/visiting-pass', visitingPassRoutes)
 app.use('/api/medical-reference', medicalReferenceRoutes)
 app.use('/api/india-data', indiaOpenDataRoutes)
 app.use('/api/hospital-directory', hospitalDirectoryRoutes)
+app.use('/api/documents', verifyLimiter, documentRoutes)
 
 
 app.get('/api/health', (req, res) => {

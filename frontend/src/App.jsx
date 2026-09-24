@@ -21,6 +21,7 @@ import PassScanner from './components/staff/PassScanner'
 import DoctorPortal from './pages/DoctorPortal';
 import DoctorPatientDetail from './pages/DoctorPatientDetail';
 import HospitalCommandCenter from './pages/HospitalCommandCenter';
+import VerifyDocument from './pages/VerifyDocument';
 
 function App() {
   return (
@@ -92,6 +93,7 @@ function App() {
                   <HospitalCommandCenter />
                 </ProtectedRoute>
               } />
+              <Route path="/verify/:id" element={<VerifyDocument />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/" element={<Navigate to="/login" />} />

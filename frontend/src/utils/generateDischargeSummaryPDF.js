@@ -6,6 +6,10 @@ import {
   formatDateLong, formatDateShort, formatDateTimeLong, formatRs, makeDocRef, styledTable,
 } from './pdfBranding';
 import { drawAuthentication } from './pdfBillingExtras';
+import { drawVitalsCharts } from './pdfCharts';
+import { getVerifyUrl } from './pdfVerification';
+import { drawFamilySummary } from './pdfText';
+import { drawMedicineTimetable } from './medicineTimetable';
 import { doctorFields, openPrintWindow, resolveAttendingDoctor, showPdfForPrint } from './pdfContext';
 
 function drawTimeline(doc, y, { admit, discharge, days }) {
@@ -62,9 +66,11 @@ async function buildDischargeDoc({ patient, dischargeSummary, vitals = [] }) {
 
   const patientKey = patient?.patientId || patient?.id || dischargeSummary?.patientName;
   const docRef = makeDocRef('AS-DS', patientKey, dischargeSummary?.dischargeDate);
+  const verifyUrl = await getVerifyUrl({ kind: 'discharge-summary', patientDocId: patient?.id, docRef });
   drawHeader(doc, {
     docRef,
-    qrText: `AAROGYASANDESH|DISCHARGE-SUMMARY|${docRef}|${patient?.patientId || 'NA'}|${dischargeSummary?.dischargeDate || ''}`,
+    qrText: verifyUrl || `AAROGYASANDESH|DISCHARGE-SUMMARY|${docRef}|${patient?.patientId || 'NA'}|${dischargeSummary?.dischargeDate || ''}`,
+    verified: !!verifyUrl,
   });
 
   let y = drawDocTitle(doc, 53, {
@@ -142,6 +148,7 @@ async function buildDischargeDoc({ patient, dischargeSummary, vitals = [] }) {
       body: medicines.map((m, i) => [i + 1, m.name || '-', m.dosage || '-', m.frequency || '-', m.route || '-']),
       columnStyles: { 0: { cellWidth: 10 } },
     }) + 6;
+    y = drawMedicineTimetable(doc, y, medicines) + 6;
   }
 
   const trend = computeVitalsTrend(vitals.length ? vitals : dischargeSummary?.vitals || []);
@@ -160,6 +167,8 @@ async function buildDischargeDoc({ patient, dischargeSummary, vitals = [] }) {
       headFill: COLORS.BRASS,
     }) + 6;
   }
+
+  y = drawVitalsCharts(doc, y, vitals.length ? vitals : dischargeSummary?.vitals || []) + 5;
 
   if (dischargeSummary?.totalBill !== undefined) {
     const bal = dischargeSummary.balance || 0;
@@ -199,6 +208,15 @@ async function buildDischargeDoc({ patient, dischargeSummary, vitals = [] }) {
     y += 20;
   }
 
+  const familySummary = patient?.discharge?.familySummary;
+  if (familySummary?.english) {
+    try {
+      y = await drawFamilySummary(doc, y, familySummary) + 4;
+    } catch (error) {
+      console.error('Could not add the family summary to the PDF:', error);
+    }
+  }
+
   const checklist = patient?.discharge?.checklist;
   if (checklist && Object.keys(checklist).length > 0) {
     y = drawSectionTitle(doc, y, 'Discharge Checklist');
@@ -212,7 +230,7 @@ async function buildDischargeDoc({ patient, dischargeSummary, vitals = [] }) {
   ]) + 6;
 
   y = ensureSpace(doc, y, 86);
-  y = drawAuthentication(doc, y, { kind: 'Discharge Summary', docRef, patientName: dischargeSummary?.patientName || patient?.name, patientId: patient?.patientId }) + 3;
+  y = drawAuthentication(doc, y, { kind: 'Discharge Summary', docRef, patientName: dischargeSummary?.patientName || patient?.name, patientId: patient?.patientId, verified: !!verifyUrl }) + 3;
 
   const dischargeStamp = (dischargeSummary?.dischargeDate ? new Date(dischargeSummary.dischargeDate) : new Date())
     .toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();

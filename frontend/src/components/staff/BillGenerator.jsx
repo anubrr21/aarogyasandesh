@@ -12,8 +12,10 @@ import { db } from '../../firebase/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { buildFinalBillDoc, getFinalBillRef, getPaymentStatus } from '../../utils/generateFinalBillPDF'
 import { amountInWords, formatDateTimeLong } from '../../utils/pdfBranding'
+import { getVerifyUrl } from '../../utils/pdfVerification'
 import { doctorFields, openPrintWindow, resolveAttendingDoctor, showPdfForPrint } from '../../utils/pdfContext'
 import { buildBillingInsights, computePaymentTotals } from '../../utils/billingHelpers'
+import { BillingCharts, hasBillingCharts } from '../common/MiniCharts'
 import QRCode from 'qrcode'
 import LogoImg from '../../assets/Logo.png'
 
@@ -33,6 +35,7 @@ const BillGenerator = ({ patientId, onClose }) => {
   const [error, setError] = useState('')
   const [billData, setBillData] = useState(null)
   const [qrUrl, setQrUrl] = useState('')
+  const [verified, setVerified] = useState(false)
   const [doctor, setDoctor] = useState(null)
 
   const hospitalName = 'AarogyaSandesh'
@@ -163,10 +166,15 @@ const BillGenerator = ({ patientId, onClose }) => {
 
   useEffect(() => {
     if (!billData) return
-    QRCode.toDataURL(`AAROGYASANDESH|FINAL-BILL|${docRef}|${billData.patientId}|${billData.totalBill}|${billData.balance}`, { margin: 0, width: 220, errorCorrectionLevel: 'M', color: { dark: '#1e2622', light: '#ffffff' } })
-      .then(setQrUrl)
-      .catch(() => setQrUrl(''))
-  }, [billData, docRef])
+    let cancelled = false
+    getVerifyUrl({ kind: 'final-bill', patientDocId: patient?.id, docRef }).then((verifyUrl) => {
+      setVerified(!!verifyUrl)
+      const text = verifyUrl || `AAROGYASANDESH|FINAL-BILL|${docRef}|${billData.patientId}|${billData.totalBill}|${billData.balance}`
+      return QRCode.toDataURL(text, { margin: 0, width: 220, errorCorrectionLevel: 'M', color: { dark: '#1e2622', light: '#ffffff' } })
+        .then((url) => { if (!cancelled) setQrUrl(url) })
+    }).catch(() => { if (!cancelled) setQrUrl('') })
+    return () => { cancelled = true }
+  }, [billData, docRef, patient])
 
   const billTotals = billData
     ? { total: billData.totalBill, ...computePaymentTotals(billData.billingItems) }
@@ -293,7 +301,7 @@ const BillGenerator = ({ patientId, onClose }) => {
             {qrUrl && (
               <div className="shrink-0 bg-white rounded-xl p-2 text-center shadow-lg">
                 <img src={qrUrl} alt="Document QR" className="w-24 h-24" />
-                <p className="text-[8px] tracking-wider text-gray-400 mt-1">DOCUMENT REF</p>
+                <p className="text-[8px] tracking-wider text-gray-400 mt-1">{verified ? 'SCAN TO VERIFY' : 'DOCUMENT REF'}</p>
                 <p className="text-[9px] font-bold text-forest-700">{docRef}</p>
               </div>
             )}
@@ -482,6 +490,13 @@ const BillGenerator = ({ patientId, onClose }) => {
             </>
           )}
 
+          {hasBillingCharts(billData.billingItems, billData.deposits) && (
+            <>
+              <SectionHeading>Billing Charts</SectionHeading>
+              <BillingCharts items={billData.billingItems} deposits={billData.deposits} />
+            </>
+          )}
+
           <div className="grid md:grid-cols-2 gap-4 mt-6">
             <div className="rounded-xl border border-gray-200/70 bg-[#f6f3ea] p-4 flex flex-col justify-between">
               <div>
@@ -572,7 +587,7 @@ const BillGenerator = ({ patientId, onClose }) => {
                 <div><p className="text-[10px] tracking-widest text-gray-400 uppercase">Issued On</p><p className="font-bold text-gray-900">{formatDateTimeLong()}</p></div>
                 <div><p className="text-[10px] tracking-widest text-gray-400 uppercase">Patient</p><p className="font-bold text-gray-900">{billData.patientName}</p></div>
               </div>
-              <p className="text-xs text-gray-500 mt-3">Electronically issued by the AarogyaSandesh platform. The QR code in the header carries this document reference for record matching.</p>
+              <p className="text-xs text-gray-500 mt-3">{verified ? 'Electronically issued by the AarogyaSandesh platform. Scan the QR code in the header to verify this document online.' : 'Electronically issued by the AarogyaSandesh platform. The QR code in the header carries this document reference for record matching.'}</p>
             </div>
             <svg viewBox="0 0 200 200" className="w-44 h-44 shrink-0 select-none" style={{ opacity: 0.9, transform: 'rotate(-12deg)' }}>
               <defs>

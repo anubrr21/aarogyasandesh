@@ -6,6 +6,7 @@ import { db, storage, ref, uploadBytes, getDownloadURL, deleteObject } from '../
 import { doc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, getDocs } from 'firebase/firestore';
 import Logo from '../assets/Logo.png';
 import Wordmark from '../components/common/Wordmark';
+import FamilySummaryPanel from '../components/discharge/FamilySummaryPanel';
 import { computeChainLink, verifyConsentChain,appendToImmutableLog } from '../utils/consentChain'
 import { searchMedicineReference } from '../data/medicineReference'
 import { formatDoctorName } from '../utils/formatDoctorName'
@@ -2252,6 +2253,7 @@ const handleSendDoctorStaffNote = async (e) => {
               </div>
 
               {dischargeData.discharged ? (
+                <>
                 <div className="text-center py-8">
                   <div className="w-20 h-20 bg-forest-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle className="w-10 h-10 text-forest-400" />
@@ -2268,6 +2270,8 @@ const handleSendDoctorStaffNote = async (e) => {
                     View Final Bill
                   </button>
                 </div>
+                <FamilySummaryPanel patient={patient} dischargeSummary={dischargeData.dischargeSummary} role="doctor" />
+                </>
               ) : (
                 <>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

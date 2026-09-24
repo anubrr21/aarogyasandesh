@@ -7,6 +7,8 @@ import {
 } from './pdfBranding';
 import { drawAuthentication, drawGlance, drawInsights } from './pdfBillingExtras';
 import { doctorFields } from './pdfContext';
+import { drawBillingCharts } from './pdfCharts';
+import { getVerifyUrl } from './pdfVerification';
 
 export function getPaymentStatus(billData) {
   const items = billData.billingItems || [];
@@ -28,10 +30,12 @@ export async function buildFinalBillDoc(billData, fallbackId) {
   const pageWidth = doc.internal.pageSize.width;
   const docRef = getFinalBillRef(billData, fallbackId);
 
+  const verifyUrl = await getVerifyUrl({ kind: 'final-bill', patientDocId: fallbackId, docRef });
   drawHeader(doc, {
     docRef,
     gstin: billData.hospitalGST,
-    qrText: `AAROGYASANDESH|FINAL-BILL|${docRef}|${billData.patientId}|${billData.totalBill}|${billData.balance}`,
+    qrText: verifyUrl || `AAROGYASANDESH|FINAL-BILL|${docRef}|${billData.patientId}|${billData.totalBill}|${billData.balance}`,
+    verified: !!verifyUrl,
   });
 
   let y = drawDocTitle(doc, 53, {
@@ -151,6 +155,7 @@ export async function buildFinalBillDoc(billData, fallbackId) {
   if (billData.billingItems.length + billData.deposits.length > 0) {
     y = drawSectionTitle(doc, y, 'Account Ledger');
     y = drawLedger(doc, y, { items: billData.billingItems, deposits: billData.deposits }) + 7;
+    y = drawBillingCharts(doc, y, { items: billData.billingItems, deposits: billData.deposits }) + 7;
   }
 
   y = ensureSpace(doc, y, 44);
@@ -189,7 +194,7 @@ export async function buildFinalBillDoc(billData, fallbackId) {
   ]) + 4;
 
   y = ensureSpace(doc, y, 86);
-  y = drawAuthentication(doc, y, { kind: 'Final Bill', docRef, patientName: billData.patientName, patientId: billData.patientId }) + 6;
+  y = drawAuthentication(doc, y, { kind: 'Final Bill', docRef, patientName: billData.patientName, patientId: billData.patientId, verified: !!verifyUrl }) + 6;
 
   const stampDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
   let stamp = null;

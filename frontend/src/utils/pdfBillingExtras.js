@@ -27,7 +27,7 @@ export function drawInsights(doc, y, { items, totalBill, stayDays }) {
   return drawNoteBox(doc, y, 'Billing Insights', lines);
 }
 
-export function drawAuthentication(doc, y, { kind, docRef, patientName, patientId }) {
+export function drawAuthentication(doc, y, { kind, docRef, patientName, patientId, verified = false }) {
   return drawAuthPanel(doc, y, {
     rows: [
       { label: 'Document Type', value: kind },
@@ -35,6 +35,8 @@ export function drawAuthentication(doc, y, { kind, docRef, patientName, patientI
       { label: 'Issued On', value: formatDateTimeLong() },
       { label: 'Patient', value: `${patientName || 'N/A'}${patientId && patientId !== 'N/A' ? ` (${patientId})` : ''}` },
     ],
-    note: 'Electronically issued by the AarogyaSandesh platform. The QR code on page 1 carries this document reference for record matching.',
+    note: verified
+      ? 'Electronically issued by the AarogyaSandesh platform. Scan the QR code on page 1 to verify this document online.'
+      : 'Electronically issued by the AarogyaSandesh platform. The QR code on page 1 carries this document reference for record matching.',
   });
 }

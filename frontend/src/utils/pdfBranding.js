@@ -148,7 +148,7 @@ export function drawQR(doc, text, x, y, size) {
   }
 }
 
-export function drawHeader(doc, { docRef, qrText, gstin }) {
+export function drawHeader(doc, { docRef, qrText, gstin, verified = false }) {
   const w = doc.internal.pageSize.width;
 
   doc.setFillColor(...COLORS.FOREST_DARK);
@@ -190,7 +190,7 @@ export function drawHeader(doc, { docRef, qrText, gstin }) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(4.8);
   doc.setTextColor(...COLORS.MUTED);
-  doc.text('DOCUMENT REF', qrCardX + 16, 35.4, { align: 'center' });
+  doc.text(verified ? 'SCAN TO VERIFY' : 'DOCUMENT REF', qrCardX + 16, 35.4, { align: 'center' });
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(5.2);
   doc.setTextColor(...COLORS.FOREST);
@@ -639,7 +639,7 @@ export function drawCategoryBar(doc, y, breakdown) {
   return legendY + 4;
 }
 
-export function styledTable(doc, { startY, head, body, foot, rightCols = [], headFill = COLORS.FOREST, tableWidth, columnStyles = {}, fontSize = 8.4, cellPadding = { top: 2.7, bottom: 2.7, left: 3.2, right: 3.2 } }) {
+export function styledTable(doc, { startY, head, body, foot, rightCols = [], headFill = COLORS.FOREST, tableWidth, columnStyles = {}, onDrawCell, fontSize = 8.4, cellPadding = { top: 2.7, bottom: 2.7, left: 3.2, right: 3.2 } }) {
   autoTable(doc, {
     startY,
     head: [head],
@@ -664,6 +664,7 @@ export function styledTable(doc, { startY, head, body, foot, rightCols = [], hea
         { ...(rightCols.includes(index) ? { halign: 'right' } : {}), ...(columnStyles[index] || {}) },
       ]),
     ),
+    ...(onDrawCell ? { didDrawCell: onDrawCell } : {}),
     didParseCell: (data) => {
       if ((data.section === 'head' || data.section === 'foot') && rightCols.includes(data.column.index)) data.cell.styles.halign = 'right';
     },

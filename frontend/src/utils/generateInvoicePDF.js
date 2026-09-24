@@ -6,6 +6,8 @@ import {
   ensureSpace, finalizeDocument, formatDateShort, formatDateTimeLong, formatRs, styledTable,
 } from './pdfBranding';
 import { drawAuthentication, drawGlance, drawInsights } from './pdfBillingExtras';
+import { drawBillingCharts } from './pdfCharts';
+import { getVerifyUrl } from './pdfVerification';
 import { doctorFields, openPrintWindow, resolveAttendingDoctor, showPdfForPrint } from './pdfContext';
 
 async function buildInvoiceDoc({ patient, billingData, totalBill, totalDeposits, balance }) {
@@ -19,9 +21,11 @@ async function buildInvoiceDoc({ patient, billingData, totalBill, totalDeposits,
   const pageWidth = doc.internal.pageSize.width;
 
   const patientKey = patient?.patientId || patient?.id;
+  const verifyUrl = await getVerifyUrl({ kind: 'invoice', patientDocId: patient?.id, docRef: invoiceNumber });
   drawHeader(doc, {
     docRef: invoiceNumber,
-    qrText: `AAROGYASANDESH|INVOICE|${invoiceNumber}|${patientKey || 'NA'}|${totalBill}|${new Date().toISOString().slice(0, 10)}`,
+    qrText: verifyUrl || `AAROGYASANDESH|INVOICE|${invoiceNumber}|${patientKey || 'NA'}|${totalBill}|${new Date().toISOString().slice(0, 10)}`,
+    verified: !!verifyUrl,
   });
 
   let y = drawDocTitle(doc, 53, {
@@ -119,6 +123,7 @@ async function buildInvoiceDoc({ patient, billingData, totalBill, totalDeposits,
   if (items.length + deposits.length > 0) {
     y = drawSectionTitle(doc, y, 'Account Ledger');
     y = drawLedger(doc, y, { items, deposits }) + 7;
+    y = drawBillingCharts(doc, y, { items, deposits }) + 7;
   }
 
   y = ensureSpace(doc, y, 44);
@@ -143,7 +148,7 @@ async function buildInvoiceDoc({ patient, billingData, totalBill, totalDeposits,
   ]) + 4;
 
   y = ensureSpace(doc, y, 86);
-  y = drawAuthentication(doc, y, { kind: 'Medical Invoice', docRef: invoiceNumber, patientName: patient?.name, patientId: patient?.patientId }) + 6;
+  y = drawAuthentication(doc, y, { kind: 'Medical Invoice', docRef: invoiceNumber, patientName: patient?.name, patientId: patient?.patientId, verified: !!verifyUrl }) + 6;
 
   let stamp = null;
   const stampDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
